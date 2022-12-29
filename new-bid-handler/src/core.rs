@@ -1,10 +1,12 @@
 use crate::signature_validation::verify_signature;
 use eip_712::{hash_structured_data, EIP712};
+use ethers::types::Address;
 use lambda_http::http::StatusCode;
 use lambda_http::{Body, Error, Request, Response};
 use rustc_hex::ToHex;
 use serde::{Deserialize, Serialize};
 use serde_json::from_str;
+use std::str::FromStr;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct BidRequest {
@@ -35,15 +37,16 @@ pub async fn request_handler(event: Request) -> Result<Response<Body>, Error> {
         Ok(payload) => payload,
         Err(e) => return build_response(StatusCode::BAD_REQUEST, &e.to_string()),
     };
+    // Verify signer address
+    let signer = match Address::from_str(&bid_payload.sender) {
+        Ok(address) => address,
+        Err(_) => return build_response(StatusCode::BAD_REQUEST, "Invalid signer address"),
+    };
     // Verify the signature, return 400 if the signature is invalid
     let hashed_typed_data = hash_structured_data(bid_payload.typed_data.clone())
         .unwrap()
         .to_hex::<String>();
-    match verify_signature(
-        &bid_payload.sender,
-        &hashed_typed_data,
-        &bid_payload.signature,
-    ) {
+    match verify_signature(signer, &hashed_typed_data, &bid_payload.signature) {
         Ok(signature) => signature,
         Err(e) => return build_response(StatusCode::BAD_REQUEST, &e.to_string()),
     };

@@ -2,7 +2,13 @@ use crate::core::BidRequest;
 use eip_712::EIP712;
 use serde_json::from_str;
 
-pub fn get_dummy_bid_request() -> BidRequest {
+pub enum Option {
+    Valid,
+    BadSignerAddress,
+    BadSignature,
+}
+
+pub fn new_bid_request(option: Option) -> BidRequest {
     let json = r#"{
 		"primaryType": "Mail",
 		"domain": {
@@ -42,9 +48,18 @@ pub fn get_dummy_bid_request() -> BidRequest {
 	}"#;
     let typed_data = from_str::<EIP712>(json).unwrap();
 
+    let sender = match option {
+        Option::BadSignerAddress => "0xakljsdfjhk",
+        _ => "0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826",
+    };
+    let signature = match option {
+        Option::BadSignature => "0xakljsdfjhk",
+        _ => "0x1c",
+    };
+
     BidRequest {
         typed_data,
-        sender: "0x0000000000000000000000000000000000000000".to_string(),
-        signature: "0x0000000000000000000000000000000000000000000000000000000000000000".to_string(),
+        sender: sender.to_string(),
+        signature: signature.to_string(),
     }
 }

@@ -1,12 +1,15 @@
-use ethers::types::Signature;
+use ethers::types::{Address, RecoveryMessage, Signature};
 use std::str::FromStr;
 
 pub fn verify_signature(
-    signer: &String,
+    signer: Address,
     hash: &String,
     signature: &String,
 ) -> Result<Signature, String> {
-    // TODO: Implement
     let sig = Signature::from_str(signature).unwrap();
-    Ok(sig)
+    let recovery_message = RecoveryMessage::from(hash.clone());
+    match sig.verify(recovery_message, signer) {
+        Ok(_) => Ok(sig),
+        Err(_) => Err("Signature verification failed".to_string()),
+    }
 }
