@@ -43,4 +43,31 @@ mod tests {
             _ => panic!("Malformed response"),
         }
     }
+
+    #[tokio::test]
+    async fn request_handler_invalid_sig() {
+        let bid_request = dummy_data::new_bid_request(dummy_data::Option::InvalidSignature);
+        let request = Request::new(Body::from(to_string(&bid_request).unwrap()));
+        let response = request_handler(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        match response.body() {
+            Body::Text(msg) => assert_eq!(msg, "Invalid signature"),
+            _ => panic!("Malformed response"),
+        }
+    }
+
+    #[tokio::test]
+    async fn request_handler_sig_doesnt_match_signer() {
+        let bid_request =
+            dummy_data::new_bid_request(dummy_data::Option::SignatureDoesNotMatchSigner);
+        let request = Request::new(Body::from(to_string(&bid_request).unwrap()));
+        let response = request_handler(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        match response.body() {
+            Body::Text(msg) => assert_eq!(msg, "Signature does not match signer"),
+            _ => panic!("Malformed response"),
+        }
+    }
 }

@@ -5,7 +5,8 @@ use serde_json::from_str;
 pub enum Option {
     Valid,
     BadSignerAddress,
-    BadSignature,
+    InvalidSignature,
+    SignatureDoesNotMatchSigner,
 }
 
 pub fn new_bid_request(option: Option) -> BidRequest {
@@ -50,11 +51,12 @@ pub fn new_bid_request(option: Option) -> BidRequest {
 
     let sender = match option {
         Option::BadSignerAddress => "0xakljsdfjhk",
+        Option::SignatureDoesNotMatchSigner => "0xAB2a3d9F938E13CD947Ec05AbC7FE734Df8DD820",
         _ => "0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826",
     };
     let signature = match option {
-        Option::BadSignature => "0xakljsdfjhk",
-        _ => "0x1c",
+        Option::InvalidSignature => "0xakljsdfjhk",
+        _ => "0x4355c47d63924e8a72e509b65029052eb6c299d53a04e167c5775fd466751c9d07299936d304c153f6443dfa05f40ff007d72911b6f72307f996231605b915621c",
     };
 
     BidRequest {
