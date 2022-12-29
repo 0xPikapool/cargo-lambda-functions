@@ -1,5 +1,5 @@
 [package]
-name = "new-bid-handler"
+name = "pikapool-api"
 version = "0.1.0"
 edition = "2021"
 
@@ -24,6 +24,11 @@ use = "0.0.0"
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+redis = "0.22.1"
+lazy_static = "1.4.0"
+eip-712 = { git = "https://github.com/0xPikapool/EIP-712" }
+rustc-hex = "2.1.0"
+ethers = "1.0.2"
 
 [package.metadata.lambda.deploy]
 memory = 256                   # Function's memory
