@@ -1,8 +1,10 @@
+use dotenv;
 use lambda_http::{run, service_fn, Error};
 use pikapool_api::core::request_handler;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    dotenv::dotenv().ok();
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::INFO)
         // disable printing the name of the module in every log line.
