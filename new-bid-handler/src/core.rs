@@ -1,7 +1,7 @@
 use crate::signature_validation::verify_signature;
 use eip_712::{hash_structured_data, EIP712};
 use ethers::types::Address;
-use lambda_http::http::StatusCode;
+use lambda_http::http::{Method, StatusCode};
 use lambda_http::{Body, Error, Request, Response};
 use serde::{Deserialize, Serialize};
 use serde_json::from_str;
@@ -14,16 +14,19 @@ pub struct BidRequest {
     pub signature: String,
 }
 
-// TODO: Reuse redis connections between invocations
-// #[macro_use]
-// extern crate lazy_static;
-// lazy_static! {
-//     #[derive(Debug)]
-//     static ref REDIS_CONNECTION: redis::Connection =
-//         redis::Client::open(env::var("REDIS_URL").unwrap()).unwrap().get_connection().unwrap();
-// }
-
 pub async fn request_handler(event: Request) -> Result<Response<Body>, Error> {
+    match event.method() {
+        &Method::PUT => put_request_handler(event).await,
+        &Method::OPTIONS => build_response(StatusCode::OK, "OK"),
+        _ => build_response(StatusCode::NOT_IMPLEMENTED, "Method not implemented"),
+    }
+}
+
+pub async fn put_request_handler(event: Request) -> Result<Response<Body>, Error> {
+    if event.method() == Method::OPTIONS {
+        return build_response(StatusCode::OK, "OK");
+    }
+
     // Deserialize the request body into a `BidPayload` struct, return 400 if there's no body
     let bid_payload = match event.body() {
         Body::Text(body) => from_str::<BidRequest>(&body),
@@ -67,6 +70,9 @@ pub async fn request_handler(event: Request) -> Result<Response<Body>, Error> {
 
 fn build_response(status: StatusCode, message: &str) -> Result<Response<Body>, Error> {
     Ok(Response::builder()
+        .header("Access-Control-Allow-Origin", "*")
+        .header("Access-Control-Allow-Methods", "PUT,OPTION")
+        .header("Access-Control-Allow-Headers", "content-type")
         .status(status)
         .body(Body::from(message))
         .unwrap())
