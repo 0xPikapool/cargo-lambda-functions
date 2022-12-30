@@ -1,6 +1,6 @@
 use crate::signature_validation::verify_signature;
 use eip_712::{hash_structured_data, EIP712};
-use ethers::types::{Address, H256};
+use ethers::types::Address;
 use lambda_http::http::StatusCode;
 use lambda_http::{Body, Error, Request, Response};
 use serde::{Deserialize, Serialize};
@@ -40,10 +40,10 @@ pub async fn request_handler(event: Request) -> Result<Response<Body>, Error> {
         Err(_) => return build_response(StatusCode::BAD_REQUEST, "Invalid signer address"),
     };
     // Verify the signature, return 400 if the signature is invalid
-    let hashed_typed_data: [u8; 32] = hash_structured_data(bid_payload.typed_data.clone())
+    let typed_data_hash_bytes: [u8; 32] = hash_structured_data(bid_payload.typed_data.clone())
         .unwrap()
         .into();
-    match verify_signature(signer, H256(hashed_typed_data), &bid_payload.signature) {
+    match verify_signature(signer, typed_data_hash_bytes, &bid_payload.signature) {
         Ok(signature) => signature,
         Err(e) => return build_response(StatusCode::BAD_REQUEST, &e.to_string()),
     };
