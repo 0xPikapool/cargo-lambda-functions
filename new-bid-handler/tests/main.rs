@@ -70,4 +70,13 @@ mod tests {
             _ => panic!("Malformed response"),
         }
     }
+
+    #[tokio::test]
+    async fn request_handler_sig_matches_signer() {
+        let bid_request = dummy_data::new_bid_request(dummy_data::Option::Valid);
+        let request = Request::new(Body::from(to_string(&bid_request).unwrap()));
+        let response = request_handler(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
 }
