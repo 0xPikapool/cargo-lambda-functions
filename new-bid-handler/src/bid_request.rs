@@ -1,8 +1,7 @@
-use eip_712::EIP712;
+use eip_712::{FieldType, MessageTypes, EIP712};
 use lazy_static::lazy_static;
 use serde;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use validator::Validate;
 use validator::ValidationErrors;
 
@@ -15,16 +14,8 @@ pub struct BidRequest {
     pub signature: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-struct FieldType {
-    name: String,
-    r#type: String,
-}
-
-type MessageTypes = HashMap<String, Vec<FieldType>>;
-
 lazy_static! {
-    static ref EXPECTED_BID_REQUEST_TYPES_STR: String = {
+    static ref EXPECTED_BID_REQUEST_MESSAGE_TYPES: MessageTypes = {
         let mut types = MessageTypes::new();
         types.insert(
             "EIP712Domain".to_string(),
@@ -48,11 +39,11 @@ lazy_static! {
             ],
         );
         types.insert(
-            "Bids".to_string(),
+            "Bid".to_string(),
             vec![
                 FieldType {
                     name: "auctionContract".to_string(),
-                    r#type: "auction".to_string(),
+                    r#type: "address".to_string(),
                 },
                 FieldType {
                     name: "nftCount".to_string(),
@@ -68,18 +59,15 @@ lazy_static! {
                 },
             ],
         );
-        serde_json::to_string(&types).unwrap()
+        types
     };
 }
 
 impl Validate for BidRequest {
     fn validate(&self) -> Result<(), ValidationErrors> {
-        // Validate types. This implicitly validates the message, as the
-        // message is validated to match the types.
-        let types_str = serde_json::to_string(&self.typed_data.types).unwrap();
-        if types_str.eq(&EXPECTED_BID_REQUEST_TYPES_STR.to_string()) {
+        if self.typed_data.types != *EXPECTED_BID_REQUEST_MESSAGE_TYPES {
             return Err(ValidationErrors::new());
-        };
+        }
 
         // Validate static domain fields
         if self.typed_data.domain.name != "Pikapool Auction" {

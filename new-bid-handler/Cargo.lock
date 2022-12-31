@@ -587,7 +587,7 @@ dependencies = [
 [[package]]
 name = "eip-712"
 version = "0.1.0"
-source = "git+https://github.com/0xPikapool/EIP-712#572a95ff879c435a3916a976d67dd601eedc3fde"
+source = "git+https://github.com/0xPikapool/EIP-712#ca3b836dd5432edffe9e77681e6bd811927ac248"
 dependencies = [
  "ethabi 6.1.0",
  "ethereum-types 0.4.2",
