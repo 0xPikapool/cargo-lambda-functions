@@ -32,11 +32,11 @@ ethers = "1.0.2"
 dotenv = "0.15.0"
 
 [package.metadata.lambda.deploy]
-memory = 256                   # Function's memory
-timeout = 120                  # Function's execution timeout
-tracing = "active"             # Tracing mode
-# role = "role-full-arn"         # Function's execution role
-env_file = ".env"   # File to load environment variables from
-layers = [                     # List of layers to deploy with your function
-    "layer-full-arn"
+memory = 512
+timeout = 120
+tracing = "active"
+role = "arn:aws:iam::427324164554:role/cargo-lambda-role-352b5f2b-6ad3-4acc-a455-008a24ab5223"
+env_file = ".env.production"
+layers = [
+    "arn:aws:lambda:us-east-1:464622532012:layer:Datadog-Extension-ARM:35"
 ]
