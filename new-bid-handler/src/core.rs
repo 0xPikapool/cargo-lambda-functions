@@ -5,6 +5,7 @@ use lambda_http::http::{Method, StatusCode};
 use lambda_http::{Body, Error, Request, Response};
 use serde::{Deserialize, Serialize};
 use serde_json::from_str;
+use std::env;
 use std::str::FromStr;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -51,16 +52,17 @@ pub async fn put_request_handler(event: Request) -> Result<Response<Body>, Error
         Err(e) => return build_response(StatusCode::BAD_REQUEST, &e.to_string()),
     };
 
-    // // Spin up Redis connection
-    // let redis_url = env::var("REDIS_URL").unwrap();
-    // let redis_client = redis::Client::open(redis_url).unwrap();
-    // let mut redis_connection = redis_client.get_connection().unwrap();
+    // Spin up Redis connection
+    let redis_url = env::var("REDIS_URL").unwrap();
+    println!("Connecting to Redis at {}", redis_url);
+    let redis_client = redis::Client::open(redis_url).unwrap();
+    let mut redis_connection = redis_client.get_connection().unwrap();
 
-    // let synced_block = redis::cmd("GET")
-    //     .arg("synced_block")
-    //     .query::<String>(&mut redis_connection)
-    //     .unwrap();
-    // println!("Synced block: {}", synced_block);
+    let synced_block: Option<String> = redis::cmd("GET")
+        .arg("synced_block")
+        .query(&mut redis_connection)
+        .unwrap();
+    println!("Synced block: {:?}", synced_block);
 
     build_response(
         StatusCode::OK,
