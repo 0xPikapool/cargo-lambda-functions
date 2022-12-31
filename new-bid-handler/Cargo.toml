@@ -30,6 +30,8 @@ eip-712 = { git = "https://github.com/0xPikapool/EIP-712" }
 rustc-hex = "2.1.0"
 ethers = "1.0.2"
 dotenv = "0.15.0"
+serde_valid = "0.11.3"
+validator = "0.8.0"
 
 [package.metadata.lambda.deploy]
 memory = 512

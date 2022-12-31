@@ -1,19 +1,14 @@
+use crate::bid_request::BidRequest;
 use crate::signature_validation::verify_signature;
-use eip_712::{hash_structured_data, EIP712};
+use eip_712::hash_structured_data;
 use ethers::types::Address;
 use lambda_http::http::{Method, StatusCode};
 use lambda_http::{Body, Error, Request, Response};
-use serde::{Deserialize, Serialize};
 use serde_json::from_str;
 use std::env;
+use std::format;
 use std::str::FromStr;
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct BidRequest {
-    pub typed_data: EIP712,
-    pub sender: String,
-    pub signature: String,
-}
+use validator::Validate;
 
 pub async fn request_handler(event: Request) -> Result<Response<Body>, Error> {
     match event.method() {
@@ -24,26 +19,32 @@ pub async fn request_handler(event: Request) -> Result<Response<Body>, Error> {
 }
 
 pub async fn put_request_handler(event: Request) -> Result<Response<Body>, Error> {
-    if event.method() == Method::OPTIONS {
-        return build_response(StatusCode::OK, "OK");
-    }
-
-    // Deserialize the request body into a `BidPayload` struct, return 400 if there's no body
+    // Deserialize the request body into a `BidPayload` struct
     let bid_payload = match event.body() {
         Body::Text(body) => from_str::<BidRequest>(&body),
         _ => return build_response(StatusCode::BAD_REQUEST, "Request body missing"),
     };
-    // Unwrap the bid payload, return 400 if the body is invalid
+    // Unwrap the EIP712 struct
     let bid_payload = match bid_payload {
         Ok(payload) => payload,
         Err(e) => return build_response(StatusCode::BAD_REQUEST, &e.to_string()),
+    };
+    // Validate the EIP712 msg is a valid Bid
+    match bid_payload.validate() {
+        Err(_) => {
+            return build_response(
+                StatusCode::BAD_REQUEST,
+                "typed_data is not a valid Pikapool Bid",
+            )
+        }
+        _ => (),
     };
     // Verify signer address
     let signer = match Address::from_str(&bid_payload.sender) {
         Ok(address) => address,
         Err(_) => return build_response(StatusCode::BAD_REQUEST, "Invalid signer address"),
     };
-    // Verify the signature, return 400 if the signature is invalid
+    // Verify the signature
     let typed_data_hash_bytes: [u8; 32] = hash_structured_data(bid_payload.typed_data.clone())
         .unwrap()
         .into();
