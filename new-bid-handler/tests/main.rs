@@ -91,13 +91,13 @@ mod tests {
         }
     }
 
-    // #[tokio::test]
-    // async fn request_handler_sig_matches_signer() {
-    //     let bid_request = dummy_data::new_bid_request(dummy_data::Option::Valid);
-    //     let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
-    //     *r.method_mut() = Method::PUT;
-    //     let response = request_handler(r).await.unwrap();
+    #[tokio::test]
+    async fn request_handler_sig_matches_signer() {
+        let bid_request = dummy_data::new_bid_request(dummy_data::Option::Valid);
+        let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
+        *r.method_mut() = Method::PUT;
+        let response = request_handler(r).await.unwrap();
 
-    //     assert_eq!(response.status(), StatusCode::OK);
-    // }
+        assert_eq!(response.status(), StatusCode::OK);
+    }
 }

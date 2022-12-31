@@ -50,7 +50,7 @@ pub fn new_bid_request(option: Option) -> BidRequest {
                 "Bid": [
                     {
                         "name": "auctionContract",
-                        "type": "string"
+                        "type": "address"
                     },
                     {
                         "name": "nftCount",
@@ -105,7 +105,7 @@ pub fn new_bid_request(option: Option) -> BidRequest {
             "Bid": [
                 {
                     "name": "auctionContract",
-                    "type": "string"
+                    "type": "address"
                 },
                 {
                     "name": "nftCount",
@@ -129,11 +129,11 @@ pub fn new_bid_request(option: Option) -> BidRequest {
     let sender = match option {
         Option::BadSignerAddress => "0xakljsdfjhk",
         Option::SignatureDoesNotMatchSigner => "0xAB2a3d9F938E13CD947Ec05AbC7FE734Df8DD820",
-        _ => "0xcd2a3d9f938e13cd947ec05abc7fe734df8dd826",
+        _ => "0x36bCaEE2F1f6C185f91608C7802f6Fc4E8bD9f1d",
     };
     let signature = match option {
         Option::InvalidSignature => "0xakljsdfjhk",
-        _ => "0x4355c47d63924e8a72e509b65029052eb6c299d53a04e167c5775fd466751c9d07299936d304c153f6443dfa05f40ff007d72911b6f72307f996231605b915621c",
+        _ => "0x3a792f9eb87e3ff5134efb70995e2fe23083e6970305152cb04dd14b877f31e20f17a866799457c65f0526aa01487d7c6d24d3a4ab4a666720d7ad6b37a49a501b",
     };
 
     BidRequest {

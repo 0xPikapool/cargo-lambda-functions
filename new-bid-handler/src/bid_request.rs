@@ -52,7 +52,7 @@ lazy_static! {
             vec![
                 FieldType {
                     name: "auctionContract".to_string(),
-                    r#type: "string".to_string(),
+                    r#type: "auction".to_string(),
                 },
                 FieldType {
                     name: "nftCount".to_string(),
