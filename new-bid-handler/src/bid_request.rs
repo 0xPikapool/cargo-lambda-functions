@@ -14,6 +14,14 @@ pub struct BidRequest {
     pub signature: String,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct BidValues {
+    pub auction_contract: String,
+    pub nft_count: u128,
+    pub base_price_per_nft: f64,
+    pub tip_per_nft: f64,
+}
+
 lazy_static! {
     static ref EXPECTED_BID_REQUEST_MESSAGE_TYPES: MessageTypes = {
         let mut types = MessageTypes::new();
@@ -83,5 +91,27 @@ impl Validate for BidRequest {
         };
 
         Ok(())
+    }
+}
+
+impl BidRequest {
+    pub fn get_values(&self) -> BidValues {
+        let message = self.typed_data.message.as_object().unwrap();
+        let auction_contract = message.get("auctionContract").unwrap().as_str().unwrap();
+        let nft_count = message.get("nftCount").unwrap().as_str().unwrap();
+        let base_price_per_nft = message.get("basePricePerNft").unwrap().as_str().unwrap();
+        let tip_per_nft = message.get("tipPerNft").unwrap().as_str().unwrap();
+
+        BidValues {
+            auction_contract: auction_contract.to_string(),
+            nft_count: nft_count.parse().unwrap(),
+            base_price_per_nft: base_price_per_nft.parse().unwrap(),
+            tip_per_nft: tip_per_nft.parse().unwrap(),
+        }
+    }
+
+    pub fn get_bid_cost(&self) -> f64 {
+        let values = self.get_values();
+        values.nft_count as f64 * (values.base_price_per_nft + values.tip_per_nft)
     }
 }

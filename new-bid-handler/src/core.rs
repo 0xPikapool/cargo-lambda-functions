@@ -1,23 +1,35 @@
 use crate::bid_request::BidRequest;
+use crate::database::{Database, RedisDatabase};
 use crate::signature_validation::verify_signature;
 use eip_712::hash_structured_data;
 use ethers::types::Address;
 use lambda_http::http::{Method, StatusCode};
 use lambda_http::{Body, Error, Request, Response};
 use serde_json::from_str;
-// use std::env;
+use std::env;
 use std::str::FromStr;
 use validator::Validate;
 
 pub async fn request_handler(event: Request) -> Result<Response<Body>, Error> {
     match event.method() {
-        &Method::PUT => put_request_handler(event).await,
+        &Method::PUT => {
+            let redis_url = env::var("REDIS_URL").unwrap();
+            let client = redis::Client::open(redis_url).unwrap();
+            let mut db = RedisDatabase {
+                client,
+                connection: None,
+            };
+            put_request_handler(event, &mut db).await
+        }
         &Method::OPTIONS => build_response(StatusCode::OK, "OK"),
         _ => build_response(StatusCode::NOT_IMPLEMENTED, "Method not implemented"),
     }
 }
 
-pub async fn put_request_handler(event: Request) -> Result<Response<Body>, Error> {
+pub async fn put_request_handler(
+    event: Request,
+    db: &mut impl Database,
+) -> Result<Response<Body>, Error> {
     // Deserialize the request body into a `BidPayload` struct
     let bid_payload = match event.body() {
         Body::Text(body) => from_str::<BidRequest>(&body),
@@ -52,17 +64,42 @@ pub async fn put_request_handler(event: Request) -> Result<Response<Body>, Error
         Err(e) => return build_response(StatusCode::BAD_REQUEST, &e.to_string()),
     };
 
-    // Spin up Redis connection
-    // let redis_url = env::var("REDIS_URL").unwrap();
-    // println!("Connecting to Redis at {}", redis_url);
-    // let redis_client = redis::Client::open(redis_url).unwrap();
-    // let mut redis_connection = redis_client.get_connection().unwrap();
+    // Passed in-memory validation, now connect to DB
+    // TODO: Persist the database connection between calls
+    db.connect();
 
-    // let synced_block: Option<String> = redis::cmd("GET")
-    //     .arg("synced_block")
-    //     .query(&mut redis_connection)
-    //     .unwrap();
-    // println!("Synced block: {:?}", synced_block);
+    // Check user approval and balance
+    let (signer_approve_amt, signer_bal) = match db
+        .get_signer_approve_and_bal_amts(
+            &bid_payload.typed_data.domain.chain_id.to_string(),
+            &bid_payload.typed_data.domain.verifying_contract.to_string(),
+            &bid_payload.sender,
+        )
+        .unwrap()
+    {
+        Some(option) => option,
+        None => {
+            return build_response(
+                StatusCode::FORBIDDEN,
+                "Signer has not approved the settlement contract",
+            )
+        }
+    };
+    // Verify user approval
+    let bid_cost = bid_payload.get_bid_cost();
+    if signer_approve_amt < bid_cost {
+        return build_response(
+            StatusCode::FORBIDDEN,
+            &"Signer approval amount is insufficient",
+        );
+    }
+    // Verify user balance
+    if signer_bal < bid_cost {
+        return build_response(
+            StatusCode::FORBIDDEN,
+            &"Signer token balance is insufficient",
+        );
+    }
 
     build_response(
         StatusCode::OK,

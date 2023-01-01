@@ -26,12 +26,13 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 redis = "0.22.1"
 lazy_static = "1.4.0"
-eip-712 = { git = "https://github.com/0xPikapool/EIP-712" }
+eip-712 = { git = "https://github.com/0xPikapool/EIP-712", rev = "eaf9f43d92b40448988a86f50977fbbd3bf6285e" }
 rustc-hex = "2.1.0"
 ethers = "1.0.2"
 dotenv = "0.15.0"
 serde_valid = "0.11.3"
 validator = "0.8.0"
+mockall = "0.11.3"
 
 [package.metadata.lambda.deploy]
 memory = 512
