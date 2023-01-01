@@ -30,14 +30,10 @@ lazy_static! {
     };
 }
 
-fn get_redis_database() -> &'static Mutex<RedisDatabase> {
-    &REDIS_DATABASE
-}
-
 pub async fn request_handler(event: Request) -> Result<Response<Body>, Error> {
     match event.method() {
         &Method::PUT => {
-            let db = get_redis_database();
+            let db = &REDIS_DATABASE;
             put_request_handler(event, db).await
         }
         &Method::OPTIONS => build_response(StatusCode::OK, "OK"),
