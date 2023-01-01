@@ -4,6 +4,15 @@ use pikapool_api::core::put_request_handler;
 use pikapool_api::database::MockDatabase;
 use pikapool_api::dummy_data;
 use serde_json::to_string;
+use std::sync::Mutex;
+
+fn with_lock<T, F, R>(mutex: &Mutex<T>, f: F) -> R
+where
+    F: FnOnce(&mut T) -> R,
+{
+    let mut guard = mutex.lock().unwrap();
+    f(&mut *guard)
+}
 
 #[cfg(test)]
 mod tests {
@@ -11,7 +20,7 @@ mod tests {
 
     #[tokio::test]
     async fn request_handler_no_body() {
-        let mut mock_database = MockDatabase::new();
+        let mut mock_database = Mutex::new(MockDatabase::new());
         let mut r = Request::default();
         *r.method_mut() = Method::PUT;
         let response = put_request_handler(r, &mut mock_database).await.unwrap();
@@ -27,7 +36,7 @@ mod tests {
     async fn request_handler_invalid_eip712() {
         let mut r = Request::new(Body::from("invalid body"));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = MockDatabase::new();
+        let mut mock_database = Mutex::new(MockDatabase::new());
         let response = put_request_handler(r, &mut mock_database).await.unwrap();
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
@@ -42,7 +51,7 @@ mod tests {
         let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::InvalidBid);
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = MockDatabase::new();
+        let mut mock_database = Mutex::new(MockDatabase::new());
         let response = put_request_handler(r, &mut mock_database).await.unwrap();
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
@@ -58,7 +67,7 @@ mod tests {
             dummy_data::new_bid_request(dummy_data::BidRequestOption::BadSignerAddress);
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = MockDatabase::new();
+        let mut mock_database = Mutex::new(MockDatabase::new());
         let response = put_request_handler(r, &mut mock_database).await.unwrap();
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
@@ -74,7 +83,7 @@ mod tests {
             dummy_data::new_bid_request(dummy_data::BidRequestOption::InvalidAuctionAddress);
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = MockDatabase::new();
+        let mut mock_database = Mutex::new(MockDatabase::new());
         let response = put_request_handler(r, &mut mock_database).await.unwrap();
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
@@ -90,7 +99,7 @@ mod tests {
             dummy_data::new_bid_request(dummy_data::BidRequestOption::InvalidSignature);
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = MockDatabase::new();
+        let mut mock_database = Mutex::new(MockDatabase::new());
         let response = put_request_handler(r, &mut mock_database).await.unwrap();
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
@@ -106,7 +115,7 @@ mod tests {
             dummy_data::new_bid_request(dummy_data::BidRequestOption::SignatureDoesNotMatchSigner);
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = MockDatabase::new();
+        let mut mock_database = Mutex::new(MockDatabase::new());
         let response = put_request_handler(r, &mut mock_database).await.unwrap();
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
@@ -121,12 +130,13 @@ mod tests {
         let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = MockDatabase::new();
+        let mut mock_database = Mutex::new(MockDatabase::new());
 
-        mock_database.expect_connect().returning(|| ());
-        mock_database
-            .expect_get_auction()
-            .returning(|_, _| Ok(None));
+        with_lock(&mut mock_database, |db| {
+            db.expect_connect().returning(|| ());
+            db.expect_is_connected().returning(|| true);
+            db.expect_get_auction().returning(|_, _| Ok(None));
+        });
 
         let response = put_request_handler(r, &mut mock_database).await.unwrap();
 
@@ -142,13 +152,16 @@ mod tests {
         let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = MockDatabase::new();
+        let mut mock_database = Mutex::new(MockDatabase::new());
 
-        mock_database.expect_connect().returning(|| ());
-        mock_database.expect_get_auction().returning(|_, _| {
-            Ok(Some(dummy_data::new_auction(
-                dummy_data::AuctionOption::InvalidSettlementAddress,
-            )))
+        with_lock(&mut mock_database, |db| {
+            db.expect_connect().returning(|| ());
+            db.expect_is_connected().returning(|| true);
+            db.expect_get_auction().returning(|_, _| {
+                Ok(Some(dummy_data::new_auction(
+                    dummy_data::AuctionOption::InvalidSettlementAddress,
+                )))
+            });
         });
 
         let response = put_request_handler(r, &mut mock_database).await.unwrap();
@@ -168,13 +181,16 @@ mod tests {
         let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = MockDatabase::new();
+        let mut mock_database = Mutex::new(MockDatabase::new());
 
-        mock_database.expect_connect().returning(|| ());
-        mock_database.expect_get_auction().returning(|_, _| {
-            Ok(Some(dummy_data::new_auction(
-                dummy_data::AuctionOption::InvalidBasePrice,
-            )))
+        with_lock(&mut mock_database, |db| {
+            db.expect_connect().returning(|| ());
+            db.expect_is_connected().returning(|| true);
+            db.expect_get_auction().returning(|_, _| {
+                Ok(Some(dummy_data::new_auction(
+                    dummy_data::AuctionOption::InvalidBasePrice,
+                )))
+            });
         });
 
         let response = put_request_handler(r, &mut mock_database).await.unwrap();
@@ -194,16 +210,19 @@ mod tests {
         let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = MockDatabase::new();
+        let mut mock_database = Mutex::new(MockDatabase::new());
 
-        mock_database.expect_connect().returning(|| ());
-        mock_database
-            .expect_get_synced_block()
-            .returning(|_, _| Ok(99));
-        mock_database.expect_get_auction().returning(|_, _| {
-            Ok(Some(dummy_data::new_auction(
-                dummy_data::AuctionOption::Valid,
-            )))
+        with_lock(&mut mock_database, |db| {
+            db.expect_is_connected().returning(|| true);
+            db.expect_connect().returning(|| ());
+            db.expect_get_signer_approve_and_bal_amts()
+                .returning(|_, _, _| Ok(Some((200.1, 200.1))));
+            db.expect_get_synced_block().returning(|_, _| Ok(99));
+            db.expect_get_auction().returning(|_, _| {
+                Ok(Some(dummy_data::new_auction(
+                    dummy_data::AuctionOption::Valid,
+                )))
+            });
         });
 
         let response = put_request_handler(r, &mut mock_database).await.unwrap();
@@ -220,16 +239,19 @@ mod tests {
         let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = MockDatabase::new();
+        let mut mock_database = Mutex::new(MockDatabase::new());
 
-        mock_database.expect_connect().returning(|| ());
-        mock_database
-            .expect_get_synced_block()
-            .returning(|_, _| Ok(201));
-        mock_database.expect_get_auction().returning(|_, _| {
-            Ok(Some(dummy_data::new_auction(
-                dummy_data::AuctionOption::Valid,
-            )))
+        with_lock(&mut mock_database, |db| {
+            db.expect_is_connected().returning(|| true);
+            db.expect_connect().returning(|| ());
+            db.expect_get_signer_approve_and_bal_amts()
+                .returning(|_, _, _| Ok(Some((200.1, 200.1))));
+            db.expect_get_synced_block().returning(|_, _| Ok(201));
+            db.expect_get_auction().returning(|_, _| {
+                Ok(Some(dummy_data::new_auction(
+                    dummy_data::AuctionOption::Valid,
+                )))
+            });
         });
 
         let response = put_request_handler(r, &mut mock_database).await.unwrap();
@@ -246,19 +268,19 @@ mod tests {
         let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = MockDatabase::new();
+        let mut mock_database = Mutex::new(MockDatabase::new());
 
-        mock_database.expect_connect().returning(|| ());
-        mock_database
-            .expect_get_signer_approve_and_bal_amts()
-            .returning(|_, _, _| Ok(None));
-        mock_database
-            .expect_get_synced_block()
-            .returning(|_, _| Ok(150));
-        mock_database.expect_get_auction().returning(|_, _| {
-            Ok(Some(dummy_data::new_auction(
-                dummy_data::AuctionOption::Valid,
-            )))
+        with_lock(&mut mock_database, |db| {
+            db.expect_is_connected().returning(|| true);
+            db.expect_connect().returning(|| ());
+            db.expect_get_signer_approve_and_bal_amts()
+                .returning(|_, _, _| Ok(None));
+            db.expect_get_synced_block().returning(|_, _| Ok(150));
+            db.expect_get_auction().returning(|_, _| {
+                Ok(Some(dummy_data::new_auction(
+                    dummy_data::AuctionOption::Valid,
+                )))
+            });
         });
 
         let response = put_request_handler(r, &mut mock_database).await.unwrap();
@@ -275,19 +297,19 @@ mod tests {
         let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = MockDatabase::new();
+        let mut mock_database = Mutex::new(MockDatabase::new());
 
-        mock_database.expect_connect().returning(|| ());
-        mock_database
-            .expect_get_signer_approve_and_bal_amts()
-            .returning(|_, _, _| Ok(Some((0.5, 200 as f64))));
-        mock_database
-            .expect_get_synced_block()
-            .returning(|_, _| Ok(150));
-        mock_database.expect_get_auction().returning(|_, _| {
-            Ok(Some(dummy_data::new_auction(
-                dummy_data::AuctionOption::Valid,
-            )))
+        with_lock(&mut mock_database, |db| {
+            db.expect_is_connected().returning(|| true);
+            db.expect_connect().returning(|| ());
+            db.expect_get_signer_approve_and_bal_amts()
+                .returning(|_, _, _| Ok(Some((0.5, 0.1))));
+            db.expect_get_synced_block().returning(|_, _| Ok(150));
+            db.expect_get_auction().returning(|_, _| {
+                Ok(Some(dummy_data::new_auction(
+                    dummy_data::AuctionOption::Valid,
+                )))
+            });
         });
 
         let response = put_request_handler(r, &mut mock_database).await.unwrap();
@@ -304,19 +326,19 @@ mod tests {
         let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = MockDatabase::new();
+        let mut mock_database = Mutex::new(MockDatabase::new());
 
-        mock_database.expect_connect().returning(|| ());
-        mock_database
-            .expect_get_signer_approve_and_bal_amts()
-            .returning(|_, _, _| Ok(Some((200 as f64, 0.1))));
-        mock_database
-            .expect_get_synced_block()
-            .returning(|_, _| Ok(150));
-        mock_database.expect_get_auction().returning(|_, _| {
-            Ok(Some(dummy_data::new_auction(
-                dummy_data::AuctionOption::Valid,
-            )))
+        with_lock(&mut mock_database, |db| {
+            db.expect_is_connected().returning(|| true);
+            db.expect_connect().returning(|| ());
+            db.expect_get_signer_approve_and_bal_amts()
+                .returning(|_, _, _| Ok(Some((200.1, 0.1))));
+            db.expect_get_synced_block().returning(|_, _| Ok(150));
+            db.expect_get_auction().returning(|_, _| {
+                Ok(Some(dummy_data::new_auction(
+                    dummy_data::AuctionOption::Valid,
+                )))
+            });
         });
 
         let response = put_request_handler(r, &mut mock_database).await.unwrap();
@@ -333,19 +355,19 @@ mod tests {
         let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = MockDatabase::new();
+        let mut mock_database = Mutex::new(MockDatabase::new());
 
-        mock_database.expect_connect().returning(|| ());
-        mock_database
-            .expect_get_signer_approve_and_bal_amts()
-            .returning(|_, _, _| Ok(Some((200.1, 200.1))));
-        mock_database
-            .expect_get_synced_block()
-            .returning(|_, _| Ok(150));
-        mock_database.expect_get_auction().returning(|_, _| {
-            Ok(Some(dummy_data::new_auction(
-                dummy_data::AuctionOption::Valid,
-            )))
+        with_lock(&mut mock_database, |db| {
+            db.expect_is_connected().returning(|| true);
+            db.expect_connect().returning(|| ());
+            db.expect_get_signer_approve_and_bal_amts()
+                .returning(|_, _, _| Ok(Some((200.1, 200.1))));
+            db.expect_get_synced_block().returning(|_, _| Ok(150));
+            db.expect_get_auction().returning(|_, _| {
+                Ok(Some(dummy_data::new_auction(
+                    dummy_data::AuctionOption::Valid,
+                )))
+            });
         });
 
         let response = put_request_handler(r, &mut mock_database).await.unwrap();
