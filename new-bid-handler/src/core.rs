@@ -6,22 +6,39 @@ use eip_712::hash_structured_data;
 use ethers::types::Address;
 use lambda_http::http::{Method, StatusCode};
 use lambda_http::{Body, Error, Request, Response};
+use lazy_static::lazy_static;
 use log::{info, warn};
 use serde_json::from_str;
 use std::env;
 use std::str::FromStr;
+use std::sync::Mutex;
+use std::thread::sleep;
+use std::time::Duration;
 use validator::Validate;
+
+// Store the Database in a Mutex so we can reuse connections between
+// lambda invocations
+lazy_static! {
+    static ref REDIS_DATABASE: Mutex<RedisDatabase> = {
+        let redis_url = env::var("REDIS_URL").unwrap();
+        let client = redis::Client::open(redis_url).unwrap();
+        let db = RedisDatabase {
+            client,
+            connection: None,
+        };
+        Mutex::new(db)
+    };
+}
+
+fn get_redis_database() -> &'static Mutex<RedisDatabase> {
+    &REDIS_DATABASE
+}
 
 pub async fn request_handler(event: Request) -> Result<Response<Body>, Error> {
     match event.method() {
         &Method::PUT => {
-            let redis_url = env::var("REDIS_URL").unwrap();
-            let client = redis::Client::open(redis_url).unwrap();
-            let mut db = RedisDatabase {
-                client,
-                connection: None,
-            };
-            put_request_handler(event, &mut db).await
+            let db = get_redis_database();
+            put_request_handler(event, db).await
         }
         &Method::OPTIONS => build_response(StatusCode::OK, "OK"),
         _ => build_response(StatusCode::NOT_IMPLEMENTED, "Method not implemented"),
@@ -30,7 +47,7 @@ pub async fn request_handler(event: Request) -> Result<Response<Body>, Error> {
 
 pub async fn put_request_handler(
     event: Request,
-    db: &mut impl Database,
+    db: &Mutex<impl Database>,
 ) -> Result<Response<Body>, Error> {
     // Deserialize the request body into a `BidPayload` struct
     info!("Deserializing request body");
@@ -61,7 +78,8 @@ pub async fn put_request_handler(
         Ok(address) => address,
         Err(_) => return build_response(StatusCode::BAD_REQUEST, "Invalid signer address"),
     };
-    // // Verify auction contract address is a valid Address
+    info!("Signer address: {}", signer_address);
+    // Verify auction contract address is a valid Address
     info!("Verifying auction contract address");
     let auction_contract_address =
         match Address::from_str(&bid_payload.get_values().auction_contract) {
@@ -70,6 +88,7 @@ pub async fn put_request_handler(
                 return build_response(StatusCode::BAD_REQUEST, "Invalid auction contract address")
             }
         };
+    info!("Auction contract address: {}", auction_contract_address);
     // Verify the signature
     info!("Verifying signature");
     let typed_data_hash_bytes: [u8; 32] = hash_structured_data(bid_payload.typed_data.clone())
@@ -85,9 +104,16 @@ pub async fn put_request_handler(
     };
 
     // Passed in-memory validation, now connect to DB
-    // TODO: Persist the database connection between calls
-    info!("Connecting to database");
-    db.connect();
+    let mut db = db.lock().unwrap();
+    if !db.is_connected() {
+        info!("Connecting to database");
+        db.connect();
+    } else {
+        info!("Reusing database connection");
+    }
+
+    info!("Sleeping for 3 seconds...");
+    sleep(Duration::from_secs(3));
 
     // Check auction is valid
     info!("Checking auction is valid");
@@ -173,12 +199,14 @@ pub async fn put_request_handler(
         );
     }
 
+    // PUSH TO SQS
+    info!("OK!");
     build_response(StatusCode::OK, "OK")
 }
 
 fn build_response(status: StatusCode, message: &str) -> Result<Response<Body>, Error> {
     match status {
-        StatusCode::OK => info!("{}: {}", status, message),
+        StatusCode::OK => (),
         _ => warn!("{}: {}", status, message),
     };
     Ok(Response::builder()

@@ -8,6 +8,7 @@ use std::str::FromStr;
 #[automock]
 pub trait Database {
     fn connect(&mut self);
+    fn is_connected(&self) -> bool;
     fn get_signer_approve_and_bal_amts(
         &mut self,
         chain_id: &str,
@@ -32,6 +33,10 @@ pub struct RedisDatabase {
 }
 
 impl Database for RedisDatabase {
+    fn is_connected(&self) -> bool {
+        self.connection.is_some()
+    }
+
     fn connect(&mut self) {
         let connection = self.client.get_connection().unwrap();
         self.connection = Some(connection);
