@@ -21,24 +21,24 @@ pub enum AuctionOption {
 
 pub fn new_auction(option: AuctionOption) -> Auction {
     match option {
-        AuctionOption::Valid => Auction {
-            start_block: 100,
-            end_block: 200,
-            settlement_contract: Address::from_str("0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC")
-                .unwrap(),
-            base_price: 0.25,
-        },
         AuctionOption::InvalidBasePrice => Auction {
             start_block: 100,
             end_block: 200,
-            settlement_contract: Address::from_str("0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC")
+            settlement_contract: Address::from_str("0xd2090025857B9C7B24387741f120538E928A3a59")
+                .unwrap(),
+            base_price: 1.25,
+        },
+        AuctionOption::InvalidSettlementAddress => Auction {
+            start_block: 100,
+            end_block: 200,
+            settlement_contract: Address::from_str("0xaaa90025857B9C7B24387741f120538E928A3a59")
                 .unwrap(),
             base_price: 1.25,
         },
         _ => Auction {
             start_block: 100,
             end_block: 200,
-            settlement_contract: Address::from_str("0x0000000000000000000000000000000000000000")
+            settlement_contract: Address::from_str("0xd2090025857B9C7B24387741f120538E928A3a59")
                 .unwrap(),
             base_price: 0.25,
         },
@@ -48,7 +48,7 @@ pub fn new_auction(option: AuctionOption) -> Auction {
 pub fn new_bid_request(option: BidRequestOption) -> BidRequest {
     let auction_address = match option {
         BidRequestOption::InvalidAuctionAddress => "0x89q234r89hnbfgd",
-        _ => "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC",
+        _ => "0xFeebabE6b0418eC13b30aAdF129F5DcDd4f70CeA",
     };
 
     let json = match option {
@@ -60,10 +60,10 @@ pub fn new_bid_request(option: BidRequestOption) -> BidRequest {
                 "name": "Pikapool Auctionnnnnnn",
                 "version": "1",
                 "chainId": "0x1",
-                "verifyingContract": "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC"
+                "verifyingContract": "0xd2090025857B9C7B24387741f120538E928A3a59"
             },
             "message": {
-                "auctionContract": "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC",
+                "auctionContract": "0xFeebabE6b0418eC13b30aAdF129F5DcDd4f70CeA",
                 "nftCount": "5",
                 "basePricePerNft": "0.25",
                 "tipPerNft": "0.5"
@@ -115,7 +115,7 @@ pub fn new_bid_request(option: BidRequestOption) -> BidRequest {
             "name": "Pikapool Auction",
             "version": "1",
             "chainId": "0x1",
-            "verifyingContract": "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC"
+            "verifyingContract": "0xd2090025857B9C7B24387741f120538E928A3a59"
         }},
         "message": {{
             "auctionContract": "{}",
@@ -176,7 +176,7 @@ pub fn new_bid_request(option: BidRequestOption) -> BidRequest {
     };
     let signature = match option {
         BidRequestOption::InvalidSignature => "0xakljsdfjhk",
-        _ => "0x3a792f9eb87e3ff5134efb70995e2fe23083e6970305152cb04dd14b877f31e20f17a866799457c65f0526aa01487d7c6d24d3a4ab4a666720d7ad6b37a49a501b",
+        _ => "0xec125943630e609fe44cafe7920232092f4413364b60ec4a21dcaf6eed01aefa668236ff37b5b37325cd580e99bbe8416937a80e65dd7a99216dbee2deafd9231b",
     };
 
     BidRequest {
