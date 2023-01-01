@@ -1,3 +1,4 @@
+pub mod auction;
 pub mod bid_request;
 pub mod core;
 pub mod database;

@@ -1,3 +1,4 @@
+use crate::auction::Auction;
 use crate::bid_request::BidRequest;
 use crate::database::{Database, RedisDatabase};
 use crate::signature_validation::verify_signature;
@@ -51,15 +52,27 @@ pub async fn put_request_handler(
         _ => (),
     };
     // Verify signer address
-    let signer = match Address::from_str(&bid_payload.sender) {
+    let signer_address = match Address::from_str(&bid_payload.sender) {
         Ok(address) => address,
         Err(_) => return build_response(StatusCode::BAD_REQUEST, "Invalid signer address"),
     };
+    // // Verify auction contract address is a valid Address
+    let auction_contract_address =
+        match Address::from_str(&bid_payload.get_values().auction_contract) {
+            Ok(address) => address,
+            Err(_) => {
+                return build_response(StatusCode::BAD_REQUEST, "Invalid auction contract address")
+            }
+        };
     // Verify the signature
     let typed_data_hash_bytes: [u8; 32] = hash_structured_data(bid_payload.typed_data.clone())
         .unwrap()
         .into();
-    match verify_signature(signer, typed_data_hash_bytes, &bid_payload.signature) {
+    match verify_signature(
+        signer_address,
+        typed_data_hash_bytes,
+        &bid_payload.signature,
+    ) {
         Ok(signature) => signature,
         Err(e) => return build_response(StatusCode::BAD_REQUEST, &e.to_string()),
     };
@@ -68,12 +81,55 @@ pub async fn put_request_handler(
     // TODO: Persist the database connection between calls
     db.connect();
 
+    // Check auction is valid
+    let auction: Auction = match db
+        .get_auction(
+            &bid_payload.typed_data.domain.chain_id.to_string(),
+            &auction_contract_address,
+        )
+        .unwrap()
+    {
+        Some(option) => option,
+        None => return build_response(StatusCode::BAD_REQUEST, "Specified auction does not exist"),
+    };
+    // Check user specified settlement contract matches actual settlement contract
+    let settlement_contract_bytes: [u8; 20] =
+        bid_payload.typed_data.domain.verifying_contract.into();
+    let settlement_contract = Address::from_slice(&settlement_contract_bytes);
+    if auction.settlement_contract != settlement_contract {
+        return build_response(
+            StatusCode::BAD_REQUEST,
+            "Specified settlement contract does not match auction settlement contract",
+        );
+    }
+    // Check user specified base_price matches actual base_price
+    if auction.base_price != bid_payload.get_values().base_price_per_nft {
+        return build_response(
+            StatusCode::BAD_REQUEST,
+            "Specified base_price does not match auction base_price",
+        );
+    }
+    let cur_synced_block = db
+        .get_synced_block(
+            &bid_payload.typed_data.domain.chain_id.to_string(),
+            &auction_contract_address,
+        )
+        .unwrap();
+    // Check that the auction has started
+    if cur_synced_block < auction.start_block {
+        return build_response(StatusCode::BAD_REQUEST, "Auction has not started");
+    }
+    // Check that the auction has not ended
+    if cur_synced_block > auction.end_block {
+        return build_response(StatusCode::BAD_REQUEST, "Auction has ended");
+    }
+
     // Check user approval and balance
     let (signer_approve_amt, signer_bal) = match db
         .get_signer_approve_and_bal_amts(
             &bid_payload.typed_data.domain.chain_id.to_string(),
-            &bid_payload.typed_data.domain.verifying_contract.to_string(),
-            &bid_payload.sender,
+            &settlement_contract,
+            &signer_address,
         )
         .unwrap()
     {

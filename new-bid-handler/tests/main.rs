@@ -39,7 +39,7 @@ mod tests {
 
     #[tokio::test]
     async fn request_handler_invalid_bid() {
-        let bid_request = dummy_data::new_bid_request(dummy_data::Option::InvalidBid);
+        let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::InvalidBid);
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
         let mut mock_database = MockDatabase::new();
@@ -54,7 +54,8 @@ mod tests {
 
     #[tokio::test]
     async fn request_handler_invalid_signer_address() {
-        let bid_request = dummy_data::new_bid_request(dummy_data::Option::BadSignerAddress);
+        let bid_request =
+            dummy_data::new_bid_request(dummy_data::BidRequestOption::BadSignerAddress);
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
         let mut mock_database = MockDatabase::new();
@@ -68,8 +69,25 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn request_handler_invalid_auction_address() {
+        let bid_request =
+            dummy_data::new_bid_request(dummy_data::BidRequestOption::InvalidAuctionAddress);
+        let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
+        *r.method_mut() = Method::PUT;
+        let mut mock_database = MockDatabase::new();
+        let response = put_request_handler(r, &mut mock_database).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        match response.body() {
+            Body::Text(msg) => assert_eq!(msg, "Invalid auction contract address"),
+            _ => panic!("Malformed response"),
+        }
+    }
+
+    #[tokio::test]
     async fn request_handler_invalid_sig() {
-        let bid_request = dummy_data::new_bid_request(dummy_data::Option::InvalidSignature);
+        let bid_request =
+            dummy_data::new_bid_request(dummy_data::BidRequestOption::InvalidSignature);
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
         let mut mock_database = MockDatabase::new();
@@ -85,7 +103,7 @@ mod tests {
     #[tokio::test]
     async fn request_handler_sig_doesnt_match_signer() {
         let bid_request =
-            dummy_data::new_bid_request(dummy_data::Option::SignatureDoesNotMatchSigner);
+            dummy_data::new_bid_request(dummy_data::BidRequestOption::SignatureDoesNotMatchSigner);
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
         let mut mock_database = MockDatabase::new();
@@ -99,8 +117,133 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn request_handler_no_auction() {
+        let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
+        let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
+        *r.method_mut() = Method::PUT;
+        let mut mock_database = MockDatabase::new();
+
+        mock_database.expect_connect().returning(|| ());
+        mock_database
+            .expect_get_auction()
+            .returning(|_, _| Ok(None));
+
+        let response = put_request_handler(r, &mut mock_database).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        match response.body() {
+            Body::Text(msg) => assert_eq!(msg, "Specified auction does not exist"),
+            _ => panic!("Malformed response"),
+        }
+    }
+
+    #[tokio::test]
+    async fn request_handler_settlement_contract_doesnt_match() {
+        let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
+        let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
+        *r.method_mut() = Method::PUT;
+        let mut mock_database = MockDatabase::new();
+
+        mock_database.expect_connect().returning(|| ());
+        mock_database.expect_get_auction().returning(|_, _| {
+            Ok(Some(dummy_data::new_auction(
+                dummy_data::AuctionOption::InvalidSettlementAddress,
+            )))
+        });
+
+        let response = put_request_handler(r, &mut mock_database).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        match response.body() {
+            Body::Text(msg) => assert_eq!(
+                msg,
+                "Specified settlement contract does not match auction settlement contract"
+            ),
+            _ => panic!("Malformed response"),
+        }
+    }
+
+    #[tokio::test]
+    async fn request_handler_base_price_doesnt_match() {
+        let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
+        let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
+        *r.method_mut() = Method::PUT;
+        let mut mock_database = MockDatabase::new();
+
+        mock_database.expect_connect().returning(|| ());
+        mock_database.expect_get_auction().returning(|_, _| {
+            Ok(Some(dummy_data::new_auction(
+                dummy_data::AuctionOption::InvalidBasePrice,
+            )))
+        });
+
+        let response = put_request_handler(r, &mut mock_database).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        match response.body() {
+            Body::Text(msg) => assert_eq!(
+                msg,
+                "Specified base_price does not match auction base_price"
+            ),
+            _ => panic!("Malformed response"),
+        }
+    }
+
+    #[tokio::test]
+    async fn request_handler_auction_not_started() {
+        let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
+        let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
+        *r.method_mut() = Method::PUT;
+        let mut mock_database = MockDatabase::new();
+
+        mock_database.expect_connect().returning(|| ());
+        mock_database
+            .expect_get_synced_block()
+            .returning(|_, _| Ok(99));
+        mock_database.expect_get_auction().returning(|_, _| {
+            Ok(Some(dummy_data::new_auction(
+                dummy_data::AuctionOption::Valid,
+            )))
+        });
+
+        let response = put_request_handler(r, &mut mock_database).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        match response.body() {
+            Body::Text(msg) => assert_eq!(msg, "Auction has not started"),
+            _ => panic!("Malformed response"),
+        }
+    }
+
+    #[tokio::test]
+    async fn request_handler_auction_has_ended() {
+        let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
+        let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
+        *r.method_mut() = Method::PUT;
+        let mut mock_database = MockDatabase::new();
+
+        mock_database.expect_connect().returning(|| ());
+        mock_database
+            .expect_get_synced_block()
+            .returning(|_, _| Ok(201));
+        mock_database.expect_get_auction().returning(|_, _| {
+            Ok(Some(dummy_data::new_auction(
+                dummy_data::AuctionOption::Valid,
+            )))
+        });
+
+        let response = put_request_handler(r, &mut mock_database).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        match response.body() {
+            Body::Text(msg) => assert_eq!(msg, "Auction has ended"),
+            _ => panic!("Malformed response"),
+        }
+    }
+
+    #[tokio::test]
     async fn request_handler_no_signer_approval() {
-        let bid_request = dummy_data::new_bid_request(dummy_data::Option::Valid);
+        let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
         let mut mock_database = MockDatabase::new();
@@ -109,6 +252,14 @@ mod tests {
         mock_database
             .expect_get_signer_approve_and_bal_amts()
             .returning(|_, _, _| Ok(None));
+        mock_database
+            .expect_get_synced_block()
+            .returning(|_, _| Ok(150));
+        mock_database.expect_get_auction().returning(|_, _| {
+            Ok(Some(dummy_data::new_auction(
+                dummy_data::AuctionOption::Valid,
+            )))
+        });
 
         let response = put_request_handler(r, &mut mock_database).await.unwrap();
 
@@ -121,7 +272,7 @@ mod tests {
 
     #[tokio::test]
     async fn request_handler_approval_too_low() {
-        let bid_request = dummy_data::new_bid_request(dummy_data::Option::Valid);
+        let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
         let mut mock_database = MockDatabase::new();
@@ -130,6 +281,14 @@ mod tests {
         mock_database
             .expect_get_signer_approve_and_bal_amts()
             .returning(|_, _, _| Ok(Some((0.5, 200 as f64))));
+        mock_database
+            .expect_get_synced_block()
+            .returning(|_, _| Ok(150));
+        mock_database.expect_get_auction().returning(|_, _| {
+            Ok(Some(dummy_data::new_auction(
+                dummy_data::AuctionOption::Valid,
+            )))
+        });
 
         let response = put_request_handler(r, &mut mock_database).await.unwrap();
 
@@ -142,7 +301,7 @@ mod tests {
 
     #[tokio::test]
     async fn request_handler_balance_too_low() {
-        let bid_request = dummy_data::new_bid_request(dummy_data::Option::Valid);
+        let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
         let mut mock_database = MockDatabase::new();
@@ -151,6 +310,14 @@ mod tests {
         mock_database
             .expect_get_signer_approve_and_bal_amts()
             .returning(|_, _, _| Ok(Some((200 as f64, 0.1))));
+        mock_database
+            .expect_get_synced_block()
+            .returning(|_, _| Ok(150));
+        mock_database.expect_get_auction().returning(|_, _| {
+            Ok(Some(dummy_data::new_auction(
+                dummy_data::AuctionOption::Valid,
+            )))
+        });
 
         let response = put_request_handler(r, &mut mock_database).await.unwrap();
 
@@ -163,7 +330,7 @@ mod tests {
 
     #[tokio::test]
     async fn request_handler_sig_happy_path() {
-        let bid_request = dummy_data::new_bid_request(dummy_data::Option::Valid);
+        let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
         let mut mock_database = MockDatabase::new();
@@ -172,6 +339,14 @@ mod tests {
         mock_database
             .expect_get_signer_approve_and_bal_amts()
             .returning(|_, _, _| Ok(Some((200.1, 200.1))));
+        mock_database
+            .expect_get_synced_block()
+            .returning(|_, _| Ok(150));
+        mock_database.expect_get_auction().returning(|_, _| {
+            Ok(Some(dummy_data::new_auction(
+                dummy_data::AuctionOption::Valid,
+            )))
+        });
 
         let response = put_request_handler(r, &mut mock_database).await.unwrap();
 
