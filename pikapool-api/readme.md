@@ -1,4 +1,4 @@
-# new-bid-handler
+# pikapool-api
 
 ## Install
 
