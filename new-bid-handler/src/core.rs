@@ -9,7 +9,7 @@ use ethers::types::Address;
 use lambda_http::http::{Method, StatusCode};
 use lambda_http::{Body, Error, Request, Response};
 use lazy_static::lazy_static;
-use log::{info, warn};
+use log::{error, info, warn};
 use serde_json::{from_str, json};
 use std::str::FromStr;
 use std::sync::Mutex;
@@ -122,30 +122,59 @@ pub fn parse_and_validate_event(
     };
 
     // Passed in-memory validation, now connect to DB
-    // Ignore poison here so we can continue using the same redis
-    // client if there was a panic in a previous thread.
     let mut db = db_mutex.lock().ignore_poison();
+    if db_mutex.is_poisoned() {
+        warn!("Database connection is poisoned, this should never happen. Forcing a reconnection.");
+    }
     if db_mutex.is_poisoned() || !db.is_connected() {
         info!("Establishing new connection to Redis");
-        db.connect();
+        match db.connect() {
+            Ok(_) => (),
+            Err(e) => {
+                return Err(build_response(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    &e.to_string(),
+                ))
+            }
+        };
     } else {
-        info!("Reusing database connection");
+        info!("Reusing database connection ⚡");
+        match db.ping() {
+            Ok(_) => (),
+            Err(e) => {
+                error!("Ping failed: {}. Attempting to reconnect...", e.to_string());
+                match db.connect() {
+                    Ok(_) => (),
+                    Err(e) => {
+                        return Err(build_response(
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            &e.to_string(),
+                        ))
+                    }
+                };
+            }
+        }
     }
 
     // Check auction is valid
     info!("Checking auction is valid");
-    let auction: Auction = match db
-        .get_auction(
-            &bid_payload.typed_data.domain.chain_id.to_string(),
-            &auction_contract_address,
-        )
-        .unwrap()
-    {
-        Some(option) => option,
-        None => {
+    let auction: Auction = match db.get_auction(
+        &bid_payload.typed_data.domain.chain_id.to_string(),
+        &auction_contract_address,
+    ) {
+        Ok(a) => match a {
+            Some(option) => option,
+            None => {
+                return Err(build_response(
+                    StatusCode::BAD_REQUEST,
+                    "Specified auction does not exist",
+                ))
+            }
+        },
+        Err(e) => {
             return Err(build_response(
-                StatusCode::BAD_REQUEST,
-                "Specified auction does not exist",
+                StatusCode::INTERNAL_SERVER_ERROR,
+                &e.to_string(),
             ))
         }
     };
@@ -168,12 +197,18 @@ pub fn parse_and_validate_event(
             "Specified base_price does not match auction base_price",
         ));
     }
-    let cur_synced_block = db
-        .get_synced_block(
-            &bid_payload.typed_data.domain.chain_id.to_string(),
-            &settlement_contract,
-        )
-        .unwrap();
+    let cur_synced_block = match db.get_synced_block(
+        &bid_payload.typed_data.domain.chain_id.to_string(),
+        &settlement_contract,
+    ) {
+        Ok(block) => block,
+        Err(e) => {
+            return Err(build_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                &e.to_string(),
+            ))
+        }
+    };
     // Check that the auction has started
     info!("Checking auction has started");
     if cur_synced_block < auction.start_block {
@@ -190,19 +225,24 @@ pub fn parse_and_validate_event(
 
     // Check user approval and balance
     info!("Getting user approval and balance");
-    let (signer_approve_amt, signer_bal) = match db
-        .get_signer_approve_and_bal_amts(
-            &bid_payload.typed_data.domain.chain_id.to_string(),
-            &settlement_contract,
-            &signer_address,
-        )
-        .unwrap()
-    {
-        Some(option) => option,
-        None => {
+    let (signer_approve_amt, signer_bal) = match db.get_signer_approve_and_bal_amts(
+        &bid_payload.typed_data.domain.chain_id.to_string(),
+        &settlement_contract,
+        &signer_address,
+    ) {
+        Ok(res) => match res {
+            Some(option) => option,
+            None => {
+                return Err(build_response(
+                    StatusCode::FORBIDDEN,
+                    "Signer has not approved the settlement contract",
+                ))
+            }
+        },
+        Err(e) => {
             return Err(build_response(
-                StatusCode::FORBIDDEN,
-                "Signer has not approved the settlement contract",
+                StatusCode::INTERNAL_SERVER_ERROR,
+                &e.to_string(),
             ))
         }
     };
@@ -233,11 +273,18 @@ fn build_response(status: StatusCode, message: &str) -> Result<Response<Body>, E
         StatusCode::OK => (),
         _ => warn!("{}: {}", status, message),
     };
-    Ok(Response::builder()
+    let res = match Response::builder()
         .header("Access-Control-Allow-Origin", "*")
         .header("Access-Control-Allow-Methods", "PUT,OPTION")
         .header("Access-Control-Allow-Headers", "content-type")
         .status(status)
         .body(Body::from(message))
-        .unwrap())
+    {
+        Ok(res) => res,
+        Err(e) => {
+            error!("Failed to build response: {}", e);
+            return Err(Box::new(e));
+        }
+    };
+    Ok(res)
 }

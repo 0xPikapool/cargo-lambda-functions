@@ -17,7 +17,6 @@ where
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
 
     #[tokio::test]
@@ -156,7 +155,8 @@ mod tests {
         let mut mock_database = Mutex::new(MockDatabase::new());
 
         with_lock(&mut mock_database, |db| {
-            db.expect_connect().returning(|| ());
+            db.expect_connect().returning(|| Ok(()));
+            db.expect_ping().returning(|| Ok(()));
             db.expect_is_connected().returning(|| true);
             db.expect_get_auction().returning(|_, _| Ok(None));
         });
@@ -181,7 +181,8 @@ mod tests {
         let mut mock_database = Mutex::new(MockDatabase::new());
 
         with_lock(&mut mock_database, |db| {
-            db.expect_connect().returning(|| ());
+            db.expect_connect().returning(|| Ok(()));
+            db.expect_ping().returning(|| Ok(()));
             db.expect_is_connected().returning(|| true);
             db.expect_get_auction().returning(|_, _| {
                 Ok(Some(dummy_data::new_auction(
@@ -213,7 +214,8 @@ mod tests {
         let mut mock_database = Mutex::new(MockDatabase::new());
 
         with_lock(&mut mock_database, |db| {
-            db.expect_connect().returning(|| ());
+            db.expect_connect().returning(|| Ok(()));
+            db.expect_ping().returning(|| Ok(()));
             db.expect_is_connected().returning(|| true);
             db.expect_get_auction().returning(|_, _| {
                 Ok(Some(dummy_data::new_auction(
@@ -246,7 +248,8 @@ mod tests {
 
         with_lock(&mut mock_database, |db| {
             db.expect_is_connected().returning(|| true);
-            db.expect_connect().returning(|| ());
+            db.expect_connect().returning(|| Ok(()));
+            db.expect_ping().returning(|| Ok(()));
             db.expect_get_signer_approve_and_bal_amts()
                 .returning(|_, _, _| Ok(Some((200.1, 200.1))));
             db.expect_get_synced_block().returning(|_, _| Ok(99));
@@ -278,7 +281,8 @@ mod tests {
 
         with_lock(&mut mock_database, |db| {
             db.expect_is_connected().returning(|| true);
-            db.expect_connect().returning(|| ());
+            db.expect_connect().returning(|| Ok(()));
+            db.expect_ping().returning(|| Ok(()));
             db.expect_get_signer_approve_and_bal_amts()
                 .returning(|_, _, _| Ok(Some((200.1, 200.1))));
             db.expect_get_synced_block().returning(|_, _| Ok(201));
@@ -310,7 +314,8 @@ mod tests {
 
         with_lock(&mut mock_database, |db| {
             db.expect_is_connected().returning(|| true);
-            db.expect_connect().returning(|| ());
+            db.expect_connect().returning(|| Ok(()));
+            db.expect_ping().returning(|| Ok(()));
             db.expect_get_signer_approve_and_bal_amts()
                 .returning(|_, _, _| Ok(None));
             db.expect_get_synced_block().returning(|_, _| Ok(150));
@@ -342,7 +347,8 @@ mod tests {
 
         with_lock(&mut mock_database, |db| {
             db.expect_is_connected().returning(|| true);
-            db.expect_connect().returning(|| ());
+            db.expect_connect().returning(|| Ok(()));
+            db.expect_ping().returning(|| Ok(()));
             db.expect_get_signer_approve_and_bal_amts()
                 .returning(|_, _, _| Ok(Some((0.5, 0.1))));
             db.expect_get_synced_block().returning(|_, _| Ok(150));
@@ -374,7 +380,8 @@ mod tests {
 
         with_lock(&mut mock_database, |db| {
             db.expect_is_connected().returning(|| true);
-            db.expect_connect().returning(|| ());
+            db.expect_connect().returning(|| Ok(()));
+            db.expect_ping().returning(|| Ok(()));
             db.expect_get_signer_approve_and_bal_amts()
                 .returning(|_, _, _| Ok(Some((200.1, 0.1))));
             db.expect_get_synced_block().returning(|_, _| Ok(150));
@@ -406,7 +413,8 @@ mod tests {
 
         with_lock(&mut mock_database, |db| {
             db.expect_is_connected().returning(|| true);
-            db.expect_connect().returning(|| ());
+            db.expect_connect().returning(|| Ok(()));
+            db.expect_ping().returning(|| Ok(()));
             db.expect_get_signer_approve_and_bal_amts()
                 .returning(|_, _, _| Ok(Some((200.1, 200.1))));
             db.expect_get_synced_block().returning(|_, _| Ok(150));
