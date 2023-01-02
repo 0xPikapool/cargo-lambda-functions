@@ -9,7 +9,6 @@ use ethers::types::Address;
 use lambda_http::http::{Method, StatusCode};
 use lambda_http::{Body, Error, Request, Response};
 use lazy_static::lazy_static;
-use log::{error, info, warn};
 use serde_json::{from_str, json};
 use std::str::FromStr;
 use std::sync::Mutex;
@@ -44,9 +43,16 @@ pub async fn put_request_handler(
         Err(e) => return e,
     };
 
+    println!("Sending to sink...");
     match sink.send(&json!(bid_request).to_string()).await {
-        Ok(_) => build_response(StatusCode::OK, "OK"),
-        Err(e) => build_response(StatusCode::INTERNAL_SERVER_ERROR, &e),
+        Ok(_) => {
+            println!("Done! Returning 200.");
+            build_response(StatusCode::OK, "OK")
+        }
+        Err(e) => {
+            eprintln!("Error sending to sink: {}", e);
+            build_response(StatusCode::INTERNAL_SERVER_ERROR, &e)
+        }
     }
 }
 
@@ -55,7 +61,7 @@ pub fn parse_and_validate_event(
     db_mutex: &Mutex<impl Database>,
 ) -> Result<BidRequest, Result<Response<Body>, Error>> {
     // Deserialize the request body into a `BidPayload` struct
-    info!("Deserializing request body");
+    println!("Deserializing request body");
     let bid_payload = match event.body() {
         Body::Text(body) => from_str::<BidRequest>(&body),
         _ => {
@@ -66,13 +72,13 @@ pub fn parse_and_validate_event(
         }
     };
     // Unwrap the EIP712 struct
-    info!("Unwrapping EIP712 struct");
+    println!("Unwrapping EIP712 struct");
     let bid_payload = match bid_payload {
         Ok(payload) => payload,
         Err(e) => return Err(build_response(StatusCode::BAD_REQUEST, &e.to_string())),
     };
     // Validate the EIP712 msg is a valid Bid
-    info!("Validating EIP712 msg");
+    println!("Validating EIP712 msg");
     match bid_payload.validate() {
         Err(_) => {
             return Err(build_response(
@@ -83,7 +89,7 @@ pub fn parse_and_validate_event(
         _ => (),
     };
     // Verify signer address
-    info!("Verifying signer address");
+    println!("Verifying signer address");
     let signer_address = match Address::from_str(&bid_payload.sender) {
         Ok(address) => address,
         Err(_) => {
@@ -93,9 +99,9 @@ pub fn parse_and_validate_event(
             ))
         }
     };
-    info!("Signer address: {}", signer_address);
+    println!("Signer address: {}", signer_address);
     // Verify auction contract address is a valid Address
-    info!("Verifying auction contract address");
+    println!("Verifying auction contract address");
     let auction_contract_address =
         match Address::from_str(&bid_payload.get_values().auction_contract) {
             Ok(address) => address,
@@ -106,9 +112,9 @@ pub fn parse_and_validate_event(
                 ))
             }
         };
-    info!("Auction contract address: {}", auction_contract_address);
+    println!("Auction contract address: {}", auction_contract_address);
     // Verify the signature
-    info!("Verifying signature");
+    println!("Verifying signature");
     let typed_data_hash_bytes: [u8; 32] = hash_structured_data(bid_payload.typed_data.clone())
         .unwrap()
         .into();
@@ -124,10 +130,12 @@ pub fn parse_and_validate_event(
     // Passed in-memory validation, now connect to DB
     let mut db = db_mutex.lock().ignore_poison();
     if db_mutex.is_poisoned() {
-        warn!("Database connection is poisoned, this should never happen. Forcing a reconnection.");
+        eprintln!(
+            "Database connection is poisoned, this should never happen. Forcing a reconnection."
+        );
     }
     if db_mutex.is_poisoned() || !db.is_connected() {
-        info!("Establishing new connection to Redis");
+        println!("Establishing new connection to Redis");
         match db.connect() {
             Ok(_) => (),
             Err(e) => {
@@ -138,11 +146,11 @@ pub fn parse_and_validate_event(
             }
         };
     } else {
-        info!("Reusing database connection ⚡");
+        println!("Reusing database connection ⚡");
         match db.ping() {
             Ok(_) => (),
             Err(e) => {
-                error!("Ping failed: {}. Attempting to reconnect...", e.to_string());
+                eprintln!("Ping failed: {}. Attempting to reconnect...", e.to_string());
                 match db.connect() {
                     Ok(_) => (),
                     Err(e) => {
@@ -157,7 +165,7 @@ pub fn parse_and_validate_event(
     }
 
     // Check auction is valid
-    info!("Checking auction is valid");
+    println!("Checking auction is valid");
     let auction: Auction = match db.get_auction(
         &bid_payload.typed_data.domain.chain_id.to_string(),
         &auction_contract_address,
@@ -179,7 +187,7 @@ pub fn parse_and_validate_event(
         }
     };
     // Check user specified settlement contract matches actual settlement contract
-    info!("Checking settlement contract matches");
+    println!("Checking settlement contract matches");
     let settlement_contract_bytes: [u8; 20] =
         bid_payload.typed_data.domain.verifying_contract.into();
     let settlement_contract = Address::from_slice(&settlement_contract_bytes);
@@ -190,7 +198,7 @@ pub fn parse_and_validate_event(
         ));
     }
     // Check user specified base_price matches actual base_price
-    info!("Checking base_price matches");
+    println!("Checking base_price matches");
     if auction.base_price != bid_payload.get_values().base_price_per_nft {
         return Err(build_response(
             StatusCode::BAD_REQUEST,
@@ -210,7 +218,7 @@ pub fn parse_and_validate_event(
         }
     };
     // Check that the auction has started
-    info!("Checking auction has started");
+    println!("Checking auction has started");
     if cur_synced_block < auction.start_block {
         return Err(build_response(
             StatusCode::BAD_REQUEST,
@@ -218,13 +226,13 @@ pub fn parse_and_validate_event(
         ));
     }
     // Check that the auction has not ended
-    info!("Checking auction has not ended");
+    println!("Checking auction has not ended");
     if cur_synced_block > auction.end_block {
         return Err(build_response(StatusCode::BAD_REQUEST, "Auction has ended"));
     }
 
     // Check user approval and balance
-    info!("Getting user approval and balance");
+    println!("Getting user approval and balance");
     let (signer_approve_amt, signer_bal) = match db.get_signer_approve_and_bal_amts(
         &bid_payload.typed_data.domain.chain_id.to_string(),
         &settlement_contract,
@@ -247,7 +255,7 @@ pub fn parse_and_validate_event(
         }
     };
     // Verify user approval
-    info!("Verifying user approval");
+    println!("Verifying user approval");
     let bid_cost = bid_payload.get_bid_cost();
     if signer_approve_amt < bid_cost {
         return Err(build_response(
@@ -256,7 +264,7 @@ pub fn parse_and_validate_event(
         ));
     }
     // Verify user balance
-    info!("Verifying user balance");
+    println!("Verifying user balance");
     if signer_bal < bid_cost {
         return Err(build_response(
             StatusCode::FORBIDDEN,
@@ -264,14 +272,14 @@ pub fn parse_and_validate_event(
         ));
     };
 
-    info!("Valid!");
+    println!("Valid!");
     Ok(bid_payload)
 }
 
 fn build_response(status: StatusCode, message: &str) -> Result<Response<Body>, Error> {
     match status {
         StatusCode::OK => (),
-        _ => warn!("{}: {}", status, message),
+        _ => eprintln!("{}: {}", status, message),
     };
     let res = match Response::builder()
         .header("Access-Control-Allow-Origin", "*")
@@ -282,7 +290,7 @@ fn build_response(status: StatusCode, message: &str) -> Result<Response<Body>, E
     {
         Ok(res) => res,
         Err(e) => {
-            error!("Failed to build response: {}", e);
+            eprintln!("Failed to build response: {}", e);
             return Err(Box::new(e));
         }
     };
