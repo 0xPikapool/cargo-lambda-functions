@@ -3,6 +3,7 @@ use lambda_http::{Body, Request};
 use pikapool_api::core::put_request_handler;
 use pikapool_api::database::MockDatabase;
 use pikapool_api::dummy_data;
+use pikapool_api::sink::MockSink;
 use serde_json::to_string;
 use std::sync::Mutex;
 
@@ -16,14 +17,18 @@ where
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     #[tokio::test]
     async fn request_handler_no_body() {
         let mut mock_database = Mutex::new(MockDatabase::new());
+        let mut mock_sink = MockSink::new();
         let mut r = Request::default();
         *r.method_mut() = Method::PUT;
-        let response = put_request_handler(r, &mut mock_database).await.unwrap();
+        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+            .await
+            .unwrap();
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         match response.body() {
@@ -37,7 +42,10 @@ mod tests {
         let mut r = Request::new(Body::from("invalid body"));
         *r.method_mut() = Method::PUT;
         let mut mock_database = Mutex::new(MockDatabase::new());
-        let response = put_request_handler(r, &mut mock_database).await.unwrap();
+        let mut mock_sink = MockSink::new();
+        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+            .await
+            .unwrap();
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         match response.body() {
@@ -52,7 +60,10 @@ mod tests {
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
         let mut mock_database = Mutex::new(MockDatabase::new());
-        let response = put_request_handler(r, &mut mock_database).await.unwrap();
+        let mut mock_sink = MockSink::new();
+        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+            .await
+            .unwrap();
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         match response.body() {
@@ -68,7 +79,10 @@ mod tests {
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
         let mut mock_database = Mutex::new(MockDatabase::new());
-        let response = put_request_handler(r, &mut mock_database).await.unwrap();
+        let mut mock_sink = MockSink::new();
+        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+            .await
+            .unwrap();
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         match response.body() {
@@ -84,7 +98,10 @@ mod tests {
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
         let mut mock_database = Mutex::new(MockDatabase::new());
-        let response = put_request_handler(r, &mut mock_database).await.unwrap();
+        let mut mock_sink = MockSink::new();
+        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+            .await
+            .unwrap();
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         match response.body() {
@@ -100,7 +117,10 @@ mod tests {
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
         let mut mock_database = Mutex::new(MockDatabase::new());
-        let response = put_request_handler(r, &mut mock_database).await.unwrap();
+        let mut mock_sink = MockSink::new();
+        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+            .await
+            .unwrap();
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         match response.body() {
@@ -116,7 +136,10 @@ mod tests {
         let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
         *r.method_mut() = Method::PUT;
         let mut mock_database = Mutex::new(MockDatabase::new());
-        let response = put_request_handler(r, &mut mock_database).await.unwrap();
+        let mut mock_sink = MockSink::new();
+        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+            .await
+            .unwrap();
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         match response.body() {
@@ -138,7 +161,10 @@ mod tests {
             db.expect_get_auction().returning(|_, _| Ok(None));
         });
 
-        let response = put_request_handler(r, &mut mock_database).await.unwrap();
+        let mut mock_sink = MockSink::new();
+        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+            .await
+            .unwrap();
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         match response.body() {
@@ -164,7 +190,10 @@ mod tests {
             });
         });
 
-        let response = put_request_handler(r, &mut mock_database).await.unwrap();
+        let mut mock_sink = MockSink::new();
+        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+            .await
+            .unwrap();
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         match response.body() {
@@ -193,7 +222,10 @@ mod tests {
             });
         });
 
-        let response = put_request_handler(r, &mut mock_database).await.unwrap();
+        let mut mock_sink = MockSink::new();
+        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+            .await
+            .unwrap();
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         match response.body() {
@@ -225,7 +257,10 @@ mod tests {
             });
         });
 
-        let response = put_request_handler(r, &mut mock_database).await.unwrap();
+        let mut mock_sink = MockSink::new();
+        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+            .await
+            .unwrap();
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         match response.body() {
@@ -254,7 +289,10 @@ mod tests {
             });
         });
 
-        let response = put_request_handler(r, &mut mock_database).await.unwrap();
+        let mut mock_sink = MockSink::new();
+        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+            .await
+            .unwrap();
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         match response.body() {
@@ -283,7 +321,10 @@ mod tests {
             });
         });
 
-        let response = put_request_handler(r, &mut mock_database).await.unwrap();
+        let mut mock_sink = MockSink::new();
+        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+            .await
+            .unwrap();
 
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
         match response.body() {
@@ -312,7 +353,10 @@ mod tests {
             });
         });
 
-        let response = put_request_handler(r, &mut mock_database).await.unwrap();
+        let mut mock_sink = MockSink::new();
+        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+            .await
+            .unwrap();
 
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
         match response.body() {
@@ -341,7 +385,10 @@ mod tests {
             });
         });
 
-        let response = put_request_handler(r, &mut mock_database).await.unwrap();
+        let mut mock_sink = MockSink::new();
+        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+            .await
+            .unwrap();
 
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
         match response.body() {
@@ -370,7 +417,11 @@ mod tests {
             });
         });
 
-        let response = put_request_handler(r, &mut mock_database).await.unwrap();
+        let mut mock_sink = MockSink::new();
+        mock_sink.expect_send().returning(|_| Ok(()));
+        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+            .await
+            .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
     }

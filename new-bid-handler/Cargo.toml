@@ -37,6 +37,9 @@ substring = "1.4.5"
 hex = "0.4.3"
 env_logger = "0.10.0"
 log = "0.4.17"
+rusoto_sqs = "0.48.0"
+rusoto_core = "0.48.0"
+async-trait = "0.1.60"
 
 [package.metadata.lambda.deploy]
 memory = 512

@@ -3,6 +3,7 @@ use ethers::types::Address;
 use hex;
 use mockall::{automock, predicate::*};
 use redis::{Commands, RedisError};
+use std::env;
 use std::str::FromStr;
 
 #[automock]
@@ -28,7 +29,6 @@ pub trait Database {
 }
 
 pub struct RedisDatabase {
-    pub client: redis::Client,
     pub connection: Option<redis::Connection>,
 }
 
@@ -38,7 +38,9 @@ impl Database for RedisDatabase {
     }
 
     fn connect(&mut self) {
-        let connection = self.client.get_connection().unwrap();
+        let redis_url = env::var("REDIS_URL").unwrap();
+        let client = redis::Client::open(redis_url).unwrap();
+        let connection = client.get_connection().unwrap();
         self.connection = Some(connection);
     }
 
