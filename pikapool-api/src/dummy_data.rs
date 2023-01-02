@@ -176,7 +176,7 @@ pub fn new_bid_request(option: BidRequestOption) -> BidRequest {
     };
     let signature = match option {
         BidRequestOption::InvalidSignature => "0xakljsdfjhk",
-        _ => "0xec125943630e609fe44cafe7920232092f4413364b60ec4a21dcaf6eed01aefa668236ff37b5b37325cd580e99bbe8416937a80e65dd7a99216dbee2deafd9231b",
+        _ => "0xec125943630e609fe44cafe7920232092f4413364b60ec4a21dcaf6eed01aefa668236ff37b5b37325cd580e99bbe8416937a80e65dd7a99216cacheee2deafd9231b",
     };
 
     BidRequest {

@@ -7,7 +7,7 @@ use std::env;
 use std::str::FromStr;
 
 #[automock]
-pub trait Database {
+pub trait Cache {
     fn connect(&mut self) -> Result<(), String>;
     fn ping(&mut self) -> Result<(), String>;
     fn is_connected(&self) -> bool;
@@ -29,11 +29,11 @@ pub trait Database {
     ) -> Result<u64, String>;
 }
 
-pub struct RedisDatabase {
+pub struct RedisCache {
     pub connection: Option<redis::Connection>,
 }
 
-impl Database for RedisDatabase {
+impl Cache for RedisCache {
     fn is_connected(&self) -> bool {
         self.connection.is_some()
     }

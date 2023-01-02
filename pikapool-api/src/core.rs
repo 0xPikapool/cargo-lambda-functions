@@ -1,6 +1,6 @@
 use crate::auction::Auction;
 use crate::bid_request::BidRequest;
-use crate::database::{Database, RedisDatabase};
+use crate::cache::{Cache, RedisCache};
 use crate::lock_result_ext::LockResultExt;
 use crate::signature_validation::verify_signature;
 use crate::sink::{Sink, SqsProvider};
@@ -14,20 +14,20 @@ use std::str::FromStr;
 use std::sync::Mutex;
 use validator::Validate;
 
-// Store the Database in a Mutex so we can reuse connections between
+// Store the Cache in a Mutex so we can reuse connections between
 // lambda invocations
 lazy_static! {
-    static ref REDIS_DATABASE: Mutex<RedisDatabase> = {
-        let db = RedisDatabase { connection: None };
-        Mutex::new(db)
+    static ref REDIS_DATABASE: Mutex<RedisCache> = {
+        let cache = RedisCache { connection: None };
+        Mutex::new(cache)
     };
 }
 
 pub async fn request_handler(event: Request) -> Result<Response<Body>, Error> {
-    let db_mutex = &REDIS_DATABASE;
+    let cache_mutex = &REDIS_DATABASE;
     let mut sink = SqsProvider {};
     match event.method() {
-        &Method::PUT => put_request_handler(event, db_mutex, &mut sink).await,
+        &Method::PUT => put_request_handler(event, cache_mutex, &mut sink).await,
         &Method::OPTIONS => build_response(StatusCode::OK, "OK"),
         _ => build_response(StatusCode::NOT_IMPLEMENTED, "Method not implemented"),
     }
@@ -35,10 +35,10 @@ pub async fn request_handler(event: Request) -> Result<Response<Body>, Error> {
 
 pub async fn put_request_handler(
     event: Request,
-    db_mutex: &Mutex<impl Database>,
+    cache_mutex: &Mutex<impl Cache>,
     sink: &mut impl Sink,
 ) -> Result<Response<Body>, Error> {
-    let bid_request = match parse_and_validate_event(event, db_mutex) {
+    let bid_request = match parse_and_validate_event(event, cache_mutex) {
         Ok(bid_request) => bid_request,
         Err(e) => return e,
     };
@@ -58,7 +58,7 @@ pub async fn put_request_handler(
 
 pub fn parse_and_validate_event(
     event: Request,
-    db_mutex: &Mutex<impl Database>,
+    cache_mutex: &Mutex<impl Cache>,
 ) -> Result<BidRequest, Result<Response<Body>, Error>> {
     // Deserialize the request body into a `BidPayload` struct
     println!("Deserializing request body");
@@ -128,15 +128,15 @@ pub fn parse_and_validate_event(
     };
 
     // Passed in-memory validation, now connect to DB
-    let mut db = db_mutex.lock().ignore_poison();
-    if db_mutex.is_poisoned() {
+    let mut cache = cache_mutex.lock().ignore_poison();
+    if cache_mutex.is_poisoned() {
         eprintln!(
-            "Database connection is poisoned, this should never happen. Forcing a reconnection."
+            "Cache connection is poisoned, this should never happen. Forcing a reconnection."
         );
     }
-    if db_mutex.is_poisoned() || !db.is_connected() {
+    if cache_mutex.is_poisoned() || !cache.is_connected() {
         println!("Establishing new connection to Redis");
-        match db.connect() {
+        match cache.connect() {
             Ok(_) => (),
             Err(e) => {
                 return Err(build_response(
@@ -147,11 +147,11 @@ pub fn parse_and_validate_event(
         };
     } else {
         println!("Reusing database connection ⚡");
-        match db.ping() {
+        match cache.ping() {
             Ok(_) => (),
             Err(e) => {
                 eprintln!("Ping failed: {}. Attempting to reconnect...", e.to_string());
-                match db.connect() {
+                match cache.connect() {
                     Ok(_) => (),
                     Err(e) => {
                         return Err(build_response(
@@ -166,7 +166,7 @@ pub fn parse_and_validate_event(
 
     // Check auction is valid
     println!("Checking auction is valid");
-    let auction: Auction = match db.get_auction(
+    let auction: Auction = match cache.get_auction(
         &bid_payload.typed_data.domain.chain_id.to_string(),
         &auction_contract_address,
     ) {
@@ -205,7 +205,7 @@ pub fn parse_and_validate_event(
             "Specified base_price does not match auction base_price",
         ));
     }
-    let cur_synced_block = match db.get_synced_block(
+    let cur_synced_block = match cache.get_synced_block(
         &bid_payload.typed_data.domain.chain_id.to_string(),
         &settlement_contract,
     ) {
@@ -233,7 +233,7 @@ pub fn parse_and_validate_event(
 
     // Check user approval and balance
     println!("Getting user approval and balance");
-    let (signer_approve_amt, signer_bal) = match db.get_signer_approve_and_bal_amts(
+    let (signer_approve_amt, signer_bal) = match cache.get_signer_approve_and_bal_amts(
         &bid_payload.typed_data.domain.chain_id.to_string(),
         &settlement_contract,
         &signer_address,
