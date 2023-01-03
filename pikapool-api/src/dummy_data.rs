@@ -21,27 +21,27 @@ pub enum AuctionOption {
 
 pub fn new_auction(option: AuctionOption) -> Auction {
     match option {
-        AuctionOption::InvalidBasePrice => Auction {
-            start_block: 100,
-            end_block: 200,
-            settlement_contract: Address::from_str("0xd2090025857B9C7B24387741f120538E928A3a59")
-                .unwrap(),
-            base_price: 1.25,
-        },
-        AuctionOption::InvalidSettlementAddress => Auction {
-            start_block: 100,
-            end_block: 200,
-            settlement_contract: Address::from_str("0xaaa90025857B9C7B24387741f120538E928A3a59")
-                .unwrap(),
-            base_price: 1.25,
-        },
-        _ => Auction {
-            start_block: 100,
-            end_block: 200,
-            settlement_contract: Address::from_str("0xd2090025857B9C7B24387741f120538E928A3a59")
-                .unwrap(),
-            base_price: 0.25,
-        },
+        AuctionOption::InvalidBasePrice => Auction::new(
+            Address::from_str("0xFeebabE6b0418eC13b30aAdF129F5DcDd4f70CeA").unwrap(),
+            100,
+            200,
+            Address::from_str("0xd2090025857B9C7B24387741f120538E928A3a59").unwrap(),
+            1.25,
+        ),
+        AuctionOption::InvalidSettlementAddress => Auction::new(
+            Address::from_str("0xFeebabE6b0418eC13b30aAdF129F5DcDd4f70CeA").unwrap(),
+            100,
+            200,
+            Address::from_str("0xaaa90025857B9C7B24387741f120538E928A3a59").unwrap(),
+            1.25,
+        ),
+        _ => Auction::new(
+            Address::from_str("0xFeebabE6b0418eC13b30aAdF129F5DcDd4f70CeA").unwrap(),
+            100,
+            200,
+            Address::from_str("0xd2090025857B9C7B24387741f120538E928A3a59").unwrap(),
+            0.25,
+        ),
     }
 }
 

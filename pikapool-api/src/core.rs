@@ -44,13 +44,13 @@ pub async fn put_request_handler(
     db_mutex: &Mutex<impl Database>,
 ) -> Result<Response<Body>, Error> {
     let received_time = chrono::Utc::now();
-    let bid_payload = match parse_and_validate_event(event, cache_mutex).await {
+    let (bid_payload, auction) = match parse_and_validate_event(event, cache_mutex).await {
         Ok(bid_payload) => bid_payload,
         Err(e) => return e,
     };
 
     // BidPayload is valid
-    let bid = Bid::new(bid_payload, received_time);
+    let bid = Bid::new(bid_payload, received_time, auction);
 
     println!("Connecting to DB");
     let mut db = match lock_connectable_mutex_safely(db_mutex).await {
@@ -74,7 +74,7 @@ pub async fn put_request_handler(
 pub async fn parse_and_validate_event(
     event: Request,
     cache_mutex: &Mutex<impl Cache + Connectable>,
-) -> Result<BidPayload, Result<Response<Body>, Error>> {
+) -> Result<(BidPayload, Auction), Result<Response<Body>, Error>> {
     // Deserialize the request body into a `BidPayload` struct
     println!("Deserializing request body");
     let bid_payload = match event.body() {
@@ -263,7 +263,7 @@ pub async fn parse_and_validate_event(
     };
 
     println!("Valid!");
-    Ok(bid_payload)
+    Ok((bid_payload, auction))
 }
 
 fn build_response(status: StatusCode, message: &str) -> Result<Response<Body>, Error> {

@@ -26,7 +26,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 redis = "0.22.1"
 lazy_static = "1.4.0"
-eip-712 = { git = "https://github.com/0xPikapool/EIP-712", rev = "eaf9f43d92b40448988a86f50977fbbd3bf6285e" }
+eip-712 = { git = "https://github.com/0xPikapool/EIP-712", rev = "b63a54f1a43e4882c9e563d604326a8bdf0e08ea" }
 rustc-hex = "2.1.0"
 ethers = "1.0.2"
 dotenv = "0.15.0"
@@ -41,6 +41,7 @@ async-trait = "0.1.60"
 openssl = { version = "0.10.45", features = ["vendored"] }
 chrono = "0.4.23"
 tokio-postgres = "0.7.7"
+uuid = {version = "1.2.2", features = ["v4"]}
 
 [package.metadata.lambda.deploy]
 memory = 512

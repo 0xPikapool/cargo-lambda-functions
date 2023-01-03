@@ -741,7 +741,7 @@ dependencies = [
 [[package]]
 name = "eip-712"
 version = "0.1.0"
-source = "git+https://github.com/0xPikapool/EIP-712?rev=eaf9f43d92b40448988a86f50977fbbd3bf6285e#eaf9f43d92b40448988a86f50977fbbd3bf6285e"
+source = "git+https://github.com/0xPikapool/EIP-712?rev=b63a54f1a43e4882c9e563d604326a8bdf0e08ea#b63a54f1a43e4882c9e563d604326a8bdf0e08ea"
 dependencies = [
  "ethabi 6.1.0",
  "ethereum-types 0.4.2",
@@ -824,7 +824,7 @@ dependencies = [
  "sha2 0.10.6",
  "sha3",
  "thiserror",
- "uuid",
+ "uuid 0.8.2",
 ]
 
 [[package]]
@@ -2340,6 +2340,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "use",
+ "uuid 1.2.2",
  "validator",
 ]
 
@@ -3814,6 +3815,15 @@ checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
 dependencies = [
  "getrandom",
  "serde",
+]
+
+[[package]]
+name = "uuid"
+version = "1.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "422ee0de9031b5b948b97a8fc04e3aa35230001a722ddd27943e0be31564ce4c"
+dependencies = [
+ "getrandom",
 ]
 
 [[package]]

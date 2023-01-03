@@ -4,6 +4,7 @@ use crate::utils::Connectable;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use tokio_postgres::NoTls;
+use uuid::Uuid;
 
 #[async_trait]
 pub trait Database: Connectable {
@@ -16,7 +17,7 @@ pub struct RdsProvider {
 
 #[async_trait]
 impl Database for RdsProvider {
-    async fn insert_bid(&mut self, _bid: &Bid) -> Result<(), String> {
+    async fn insert_bid(&mut self, bid: &Bid) -> Result<(), String> {
         let client = match self.client.as_mut() {
             Some(client) => client,
             None => return Err("Failed to get postgres client".to_string()),
@@ -24,10 +25,21 @@ impl Database for RdsProvider {
 
         let now: DateTime<Utc> = Utc::now();
         let now_iso: String = now.to_rfc3339();
-        let query = format!("INSERT INTO bids
-        (auction_id, bundle_hash, tx_hash, bid_id, signer, units, tip, status, submitted_timestamp, status_last_updated, signed_hash)
-        VALUES('test-123', NULL, '', '{now_iso}', '', 0, 0, 'submitted', '{now_iso}', '{now_iso}', '');
-        ", now_iso=now_iso);
+        let query = format!(
+            "
+            INSERT INTO bids
+                (auction_id, bundle_hash, tx_hash, bid_id, signer, units, tip, status, submitted_timestamp, status_last_updated, signed_hash)
+            VALUES('{auction_id}', NULL, NULL, '{bid_id}', '{signer}', {units}, {tip}, 'submitted', '{submitted_timestamp_iso}', '{now_iso}', '{sig}');
+            ", 
+                bid_id=Uuid::new_v4(),
+                now_iso=now_iso,
+                auction_id=bid.auction.id,
+                signer=bid.payload.sender.to_lowercase(),
+                units=bid.payload.get_values().nft_count,
+                tip=bid.payload.get_values().tip_per_nft,
+                submitted_timestamp_iso=bid.received_time.to_rfc3339(),
+                sig=bid.payload.signature,
+        );
 
         match client.query(&query, &[]).await {
             Ok(_) => Ok(()),

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use validator::Validate;
 use validator::ValidationErrors;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
 pub struct BidPayload {

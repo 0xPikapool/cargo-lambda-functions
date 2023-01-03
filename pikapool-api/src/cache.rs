@@ -80,12 +80,13 @@ impl Cache for RedisCache {
                         Ok(address) => address,
                         Err(err) => return Err(err.to_string()),
                     };
-                    Ok(Some(Auction {
+                    Ok(Some(Auction::new(
+                        auction_contract.clone(),
                         start_block,
                         end_block,
                         settlement_contract,
                         base_price,
-                    }))
+                    )))
                 }
                 None => Ok(None),
             },

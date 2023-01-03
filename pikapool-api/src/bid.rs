@@ -1,17 +1,20 @@
 use chrono::{DateTime, Utc};
 
-use crate::bid_payload::BidPayload;
+use crate::{auction::Auction, bid_payload::BidPayload};
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct Bid {
-    payload: BidPayload,
-    received_time: DateTime<Utc>,
+    pub payload: BidPayload,
+    pub auction: Auction,
+    pub received_time: DateTime<Utc>,
 }
 
 impl Bid {
-    pub fn new(payload: BidPayload, received_time: DateTime<Utc>) -> Bid {
+    pub fn new(payload: BidPayload, received_time: DateTime<Utc>, auction: Auction) -> Bid {
         Bid {
             payload,
             received_time,
+            auction,
         }
     }
 }
