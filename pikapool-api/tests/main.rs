@@ -1,17 +1,59 @@
+use async_trait::async_trait;
+use ethers::types::Address;
 use lambda_http::http::{Method, StatusCode};
 use lambda_http::{Body, Request};
-use pikapool_api::cache::MockCache;
+use mockall::{mock, predicate::*};
+use pikapool_api::auction::Auction;
+use pikapool_api::cache::Cache;
 use pikapool_api::core::put_request_handler;
+use pikapool_api::database::MockDatabase;
 use pikapool_api::dummy_data;
-use pikapool_api::sink::MockSink;
+use pikapool_api::utils::Connectable;
 use serde_json::to_string;
-use std::sync::Mutex;
+use tokio::sync::Mutex;
 
-fn with_lock<T, F, R>(mutex: &Mutex<T>, f: F) -> R
+mock! {
+    Cachee {}
+
+    #[async_trait]
+    impl Connectable for Cachee {
+        async fn connect(&mut self) -> Result<(), String> {
+            Ok(())
+        }
+        async fn ping(&mut self) -> Result<(), String> {
+            Ok(())
+        }
+        async fn is_connected(&self) -> bool {
+            true
+        }
+    }
+
+    #[async_trait]
+    impl Cache for Cachee {
+        fn get_signer_approve_and_bal_amts(
+            &mut self,
+            chain_id: &str,
+            verifying_contract: &Address,
+            signer: &Address,
+        ) -> Result<Option<(f64, f64)>, String>;
+        fn get_auction(
+            &mut self,
+            chain_id: &str,
+            auction_contract: &Address,
+        ) -> Result<Option<Auction>, String>;
+        fn get_synced_block(
+            &mut self,
+            chain_id: &str,
+            settlement_contract: &Address,
+        ) -> Result<u64, String>;
+    }
+}
+
+async fn with_lock<T, F, R>(mutex: &Mutex<T>, f: F) -> R
 where
     F: FnOnce(&mut T) -> R,
 {
-    let mut guard = mutex.lock().unwrap();
+    let mut guard = mutex.lock().await;
     f(&mut *guard)
 }
 
@@ -21,13 +63,11 @@ mod tests {
 
     #[tokio::test]
     async fn request_handler_no_body() {
-        let mut mock_database = Mutex::new(MockCache::new());
-        let mut mock_sink = MockSink::new();
+        let mock_cache = Mutex::new(MockCachee::new());
+        let mock_db = Mutex::new(MockDatabase::new());
         let mut r = Request::default();
         *r.method_mut() = Method::PUT;
-        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
-            .await
-            .unwrap();
+        let response = put_request_handler(r, &mock_cache, &mock_db).await.unwrap();
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         match response.body() {
@@ -40,9 +80,9 @@ mod tests {
     async fn request_handler_invalid_eip712() {
         let mut r = Request::new(Body::from("invalid body"));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = Mutex::new(MockCache::new());
-        let mut mock_sink = MockSink::new();
-        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+        let mut mock_cache = Mutex::new(MockCachee::new());
+        let mut mock_db = Mutex::new(MockDatabase::new());
+        let response = put_request_handler(r, &mut mock_cache, &mut mock_db)
             .await
             .unwrap();
 
@@ -55,12 +95,12 @@ mod tests {
 
     #[tokio::test]
     async fn request_handler_invalid_bid() {
-        let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::InvalidBid);
-        let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
+        let bid_payload = dummy_data::new_bid_payload(dummy_data::BidPayloadOption::InvalidBid);
+        let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = Mutex::new(MockCache::new());
-        let mut mock_sink = MockSink::new();
-        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+        let mut mock_cache = Mutex::new(MockCachee::new());
+        let mut mock_db = Mutex::new(MockDatabase::new());
+        let response = put_request_handler(r, &mut mock_cache, &mut mock_db)
             .await
             .unwrap();
 
@@ -73,13 +113,13 @@ mod tests {
 
     #[tokio::test]
     async fn request_handler_invalid_signer_address() {
-        let bid_request =
-            dummy_data::new_bid_request(dummy_data::BidRequestOption::BadSignerAddress);
-        let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
+        let bid_payload =
+            dummy_data::new_bid_payload(dummy_data::BidPayloadOption::BadSignerAddress);
+        let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = Mutex::new(MockCache::new());
-        let mut mock_sink = MockSink::new();
-        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+        let mut mock_cache = Mutex::new(MockCachee::new());
+        let mut mock_db = Mutex::new(MockDatabase::new());
+        let response = put_request_handler(r, &mut mock_cache, &mut mock_db)
             .await
             .unwrap();
 
@@ -92,13 +132,13 @@ mod tests {
 
     #[tokio::test]
     async fn request_handler_invalid_auction_address() {
-        let bid_request =
-            dummy_data::new_bid_request(dummy_data::BidRequestOption::InvalidAuctionAddress);
-        let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
+        let bid_payload =
+            dummy_data::new_bid_payload(dummy_data::BidPayloadOption::InvalidAuctionAddress);
+        let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = Mutex::new(MockCache::new());
-        let mut mock_sink = MockSink::new();
-        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+        let mut mock_cache = Mutex::new(MockCachee::new());
+        let mut mock_db = Mutex::new(MockDatabase::new());
+        let response = put_request_handler(r, &mut mock_cache, &mut mock_db)
             .await
             .unwrap();
 
@@ -111,13 +151,13 @@ mod tests {
 
     #[tokio::test]
     async fn request_handler_invalid_sig() {
-        let bid_request =
-            dummy_data::new_bid_request(dummy_data::BidRequestOption::InvalidSignature);
-        let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
+        let bid_payload =
+            dummy_data::new_bid_payload(dummy_data::BidPayloadOption::InvalidSignature);
+        let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = Mutex::new(MockCache::new());
-        let mut mock_sink = MockSink::new();
-        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+        let mut mock_cache = Mutex::new(MockCachee::new());
+        let mut mock_db = Mutex::new(MockDatabase::new());
+        let response = put_request_handler(r, &mut mock_cache, &mut mock_db)
             .await
             .unwrap();
 
@@ -130,13 +170,13 @@ mod tests {
 
     #[tokio::test]
     async fn request_handler_sig_doesnt_match_signer() {
-        let bid_request =
-            dummy_data::new_bid_request(dummy_data::BidRequestOption::SignatureDoesNotMatchSigner);
-        let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
+        let bid_payload =
+            dummy_data::new_bid_payload(dummy_data::BidPayloadOption::SignatureDoesNotMatchSigner);
+        let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = Mutex::new(MockCache::new());
-        let mut mock_sink = MockSink::new();
-        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+        let mut mock_cache = Mutex::new(MockCachee::new());
+        let mut mock_db = Mutex::new(MockDatabase::new());
+        let response = put_request_handler(r, &mut mock_cache, &mut mock_db)
             .await
             .unwrap();
 
@@ -149,20 +189,21 @@ mod tests {
 
     #[tokio::test]
     async fn request_handler_no_auction() {
-        let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
-        let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
+        let bid_payload = dummy_data::new_bid_payload(dummy_data::BidPayloadOption::Valid);
+        let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = Mutex::new(MockCache::new());
+        let mut mock_cache = Mutex::new(MockCachee::new());
 
-        with_lock(&mut mock_database, |cache| {
+        with_lock(&mut mock_cache, |cache| {
             cache.expect_connect().returning(|| Ok(()));
             cache.expect_ping().returning(|| Ok(()));
             cache.expect_is_connected().returning(|| true);
             cache.expect_get_auction().returning(|_, _| Ok(None));
-        });
+        })
+        .await;
 
-        let mut mock_sink = MockSink::new();
-        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+        let mut mock_db = Mutex::new(MockDatabase::new());
+        let response = put_request_handler(r, &mut mock_cache, &mut mock_db)
             .await
             .unwrap();
 
@@ -175,12 +216,12 @@ mod tests {
 
     #[tokio::test]
     async fn request_handler_settlement_contract_doesnt_match() {
-        let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
-        let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
+        let bid_payload = dummy_data::new_bid_payload(dummy_data::BidPayloadOption::Valid);
+        let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = Mutex::new(MockCache::new());
+        let mut mock_cache = Mutex::new(MockCachee::new());
 
-        with_lock(&mut mock_database, |cache| {
+        with_lock(&mut mock_cache, |cache| {
             cache.expect_connect().returning(|| Ok(()));
             cache.expect_ping().returning(|| Ok(()));
             cache.expect_is_connected().returning(|| true);
@@ -189,10 +230,11 @@ mod tests {
                     dummy_data::AuctionOption::InvalidSettlementAddress,
                 )))
             });
-        });
+        })
+        .await;
 
-        let mut mock_sink = MockSink::new();
-        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+        let mut mock_db = Mutex::new(MockDatabase::new());
+        let response = put_request_handler(r, &mut mock_cache, &mut mock_db)
             .await
             .unwrap();
 
@@ -208,12 +250,12 @@ mod tests {
 
     #[tokio::test]
     async fn request_handler_base_price_doesnt_match() {
-        let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
-        let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
+        let bid_payload = dummy_data::new_bid_payload(dummy_data::BidPayloadOption::Valid);
+        let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = Mutex::new(MockCache::new());
+        let mut mock_cache = Mutex::new(MockCachee::new());
 
-        with_lock(&mut mock_database, |cache| {
+        with_lock(&mut mock_cache, |cache| {
             cache.expect_connect().returning(|| Ok(()));
             cache.expect_ping().returning(|| Ok(()));
             cache.expect_is_connected().returning(|| true);
@@ -222,10 +264,11 @@ mod tests {
                     dummy_data::AuctionOption::InvalidBasePrice,
                 )))
             });
-        });
+        })
+        .await;
 
-        let mut mock_sink = MockSink::new();
-        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+        let mut mock_db = Mutex::new(MockDatabase::new());
+        let response = put_request_handler(r, &mut mock_cache, &mut mock_db)
             .await
             .unwrap();
 
@@ -241,12 +284,12 @@ mod tests {
 
     #[tokio::test]
     async fn request_handler_auction_not_started() {
-        let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
-        let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
+        let bid_payload = dummy_data::new_bid_payload(dummy_data::BidPayloadOption::Valid);
+        let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = Mutex::new(MockCache::new());
+        let mut mock_cache = Mutex::new(MockCachee::new());
 
-        with_lock(&mut mock_database, |cache| {
+        with_lock(&mut mock_cache, |cache| {
             cache.expect_is_connected().returning(|| true);
             cache.expect_connect().returning(|| Ok(()));
             cache.expect_ping().returning(|| Ok(()));
@@ -259,10 +302,11 @@ mod tests {
                     dummy_data::AuctionOption::Valid,
                 )))
             });
-        });
+        })
+        .await;
 
-        let mut mock_sink = MockSink::new();
-        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+        let mut mock_db = Mutex::new(MockDatabase::new());
+        let response = put_request_handler(r, &mut mock_cache, &mut mock_db)
             .await
             .unwrap();
 
@@ -275,12 +319,12 @@ mod tests {
 
     #[tokio::test]
     async fn request_handler_auction_has_ended() {
-        let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
-        let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
+        let bid_payload = dummy_data::new_bid_payload(dummy_data::BidPayloadOption::Valid);
+        let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = Mutex::new(MockCache::new());
+        let mut mock_cache = Mutex::new(MockCachee::new());
 
-        with_lock(&mut mock_database, |cache| {
+        with_lock(&mut mock_cache, |cache| {
             cache.expect_is_connected().returning(|| true);
             cache.expect_connect().returning(|| Ok(()));
             cache.expect_ping().returning(|| Ok(()));
@@ -293,10 +337,11 @@ mod tests {
                     dummy_data::AuctionOption::Valid,
                 )))
             });
-        });
+        })
+        .await;
 
-        let mut mock_sink = MockSink::new();
-        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+        let mut mock_db = Mutex::new(MockDatabase::new());
+        let response = put_request_handler(r, &mut mock_cache, &mut mock_db)
             .await
             .unwrap();
 
@@ -309,12 +354,12 @@ mod tests {
 
     #[tokio::test]
     async fn request_handler_no_signer_approval() {
-        let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
-        let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
+        let bid_payload = dummy_data::new_bid_payload(dummy_data::BidPayloadOption::Valid);
+        let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = Mutex::new(MockCache::new());
+        let mut mock_cache = Mutex::new(MockCachee::new());
 
-        with_lock(&mut mock_database, |cache| {
+        with_lock(&mut mock_cache, |cache| {
             cache.expect_is_connected().returning(|| true);
             cache.expect_connect().returning(|| Ok(()));
             cache.expect_ping().returning(|| Ok(()));
@@ -327,10 +372,11 @@ mod tests {
                     dummy_data::AuctionOption::Valid,
                 )))
             });
-        });
+        })
+        .await;
 
-        let mut mock_sink = MockSink::new();
-        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+        let mut mock_db = Mutex::new(MockDatabase::new());
+        let response = put_request_handler(r, &mut mock_cache, &mut mock_db)
             .await
             .unwrap();
 
@@ -343,12 +389,12 @@ mod tests {
 
     #[tokio::test]
     async fn request_handler_approval_too_low() {
-        let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
-        let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
+        let bid_payload = dummy_data::new_bid_payload(dummy_data::BidPayloadOption::Valid);
+        let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = Mutex::new(MockCache::new());
+        let mut mock_cache = Mutex::new(MockCachee::new());
 
-        with_lock(&mut mock_database, |cache| {
+        with_lock(&mut mock_cache, |cache| {
             cache.expect_is_connected().returning(|| true);
             cache.expect_connect().returning(|| Ok(()));
             cache.expect_ping().returning(|| Ok(()));
@@ -361,10 +407,11 @@ mod tests {
                     dummy_data::AuctionOption::Valid,
                 )))
             });
-        });
+        })
+        .await;
 
-        let mut mock_sink = MockSink::new();
-        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+        let mut mock_db = Mutex::new(MockDatabase::new());
+        let response = put_request_handler(r, &mut mock_cache, &mut mock_db)
             .await
             .unwrap();
 
@@ -377,12 +424,12 @@ mod tests {
 
     #[tokio::test]
     async fn request_handler_balance_too_low() {
-        let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
-        let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
+        let bid_payload = dummy_data::new_bid_payload(dummy_data::BidPayloadOption::Valid);
+        let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = Mutex::new(MockCache::new());
+        let mut mock_cache = Mutex::new(MockCachee::new());
 
-        with_lock(&mut mock_database, |cache| {
+        with_lock(&mut mock_cache, |cache| {
             cache.expect_is_connected().returning(|| true);
             cache.expect_connect().returning(|| Ok(()));
             cache.expect_ping().returning(|| Ok(()));
@@ -395,10 +442,11 @@ mod tests {
                     dummy_data::AuctionOption::Valid,
                 )))
             });
-        });
+        })
+        .await;
 
-        let mut mock_sink = MockSink::new();
-        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+        let mut mock_db = Mutex::new(MockDatabase::new());
+        let response = put_request_handler(r, &mut mock_cache, &mut mock_db)
             .await
             .unwrap();
 
@@ -411,12 +459,12 @@ mod tests {
 
     #[tokio::test]
     async fn request_handler_sig_happy_path() {
-        let bid_request = dummy_data::new_bid_request(dummy_data::BidRequestOption::Valid);
-        let mut r = Request::new(Body::from(to_string(&bid_request).unwrap()));
+        let bid_payload = dummy_data::new_bid_payload(dummy_data::BidPayloadOption::Valid);
+        let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_database = Mutex::new(MockCache::new());
+        let mut mock_cache = Mutex::new(MockCachee::new());
 
-        with_lock(&mut mock_database, |cache| {
+        with_lock(&mut mock_cache, |cache| {
             cache.expect_is_connected().returning(|| true);
             cache.expect_connect().returning(|| Ok(()));
             cache.expect_ping().returning(|| Ok(()));
@@ -429,11 +477,15 @@ mod tests {
                     dummy_data::AuctionOption::Valid,
                 )))
             });
-        });
+        })
+        .await;
 
-        let mut mock_sink = MockSink::new();
-        mock_sink.expect_send().returning(|_| Ok(()));
-        let response = put_request_handler(r, &mut mock_database, &mut mock_sink)
+        let mut mock_db = Mutex::new(MockDatabase::new());
+        with_lock(&mut mock_db, |db| {
+            db.expect_insert_bid().returning(|_| Ok(()));
+        })
+        .await;
+        let response = put_request_handler(r, &mut mock_cache, &mut mock_db)
             .await
             .unwrap();
 

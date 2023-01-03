@@ -8,7 +8,7 @@ use validator::ValidationErrors;
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
-pub struct BidRequest {
+pub struct BidPayload {
     pub typed_data: EIP712,
     pub sender: String,
     pub signature: String,
@@ -71,7 +71,7 @@ lazy_static! {
     };
 }
 
-impl Validate for BidRequest {
+impl Validate for BidPayload {
     fn validate(&self) -> Result<(), ValidationErrors> {
         if self.typed_data.types != *EXPECTED_BID_REQUEST_MESSAGE_TYPES {
             return Err(ValidationErrors::new());
@@ -94,7 +94,7 @@ impl Validate for BidRequest {
     }
 }
 
-impl BidRequest {
+impl BidPayload {
     pub fn get_values(&self) -> BidValues {
         let message = self.typed_data.message.as_object().unwrap();
         let auction_contract = message.get("auctionContract").unwrap().as_str().unwrap();

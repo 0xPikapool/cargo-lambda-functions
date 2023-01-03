@@ -1,10 +1,10 @@
-use crate::{auction::Auction, bid_request::BidRequest};
+use crate::{auction::Auction, bid_payload::BidPayload};
 use eip_712::EIP712;
 use ethers::types::Address;
 use serde_json::from_str;
 use std::str::FromStr;
 
-pub enum BidRequestOption {
+pub enum BidPayloadOption {
     Valid,
     BadSignerAddress,
     InvalidAuctionAddress,
@@ -45,15 +45,15 @@ pub fn new_auction(option: AuctionOption) -> Auction {
     }
 }
 
-pub fn new_bid_request(option: BidRequestOption) -> BidRequest {
+pub fn new_bid_payload(option: BidPayloadOption) -> BidPayload {
     let auction_address = match option {
-        BidRequestOption::InvalidAuctionAddress => "0x89q234r89hnbfgd",
+        BidPayloadOption::InvalidAuctionAddress => "0x89q234r89hnbfgd",
         _ => "0xFeebabE6b0418eC13b30aAdF129F5DcDd4f70CeA",
     };
 
     let json = match option {
         // Typo in domain.name
-        BidRequestOption::InvalidBid => String::from(
+        BidPayloadOption::InvalidBid => String::from(
             r#"{
             "primaryType": "Bid",
             "domain": {
@@ -168,18 +168,18 @@ pub fn new_bid_request(option: BidRequestOption) -> BidRequest {
     let typed_data = from_str::<EIP712>(json.as_str()).unwrap();
 
     let sender = match option {
-        BidRequestOption::BadSignerAddress => "0xakljsdfjhk",
-        BidRequestOption::SignatureDoesNotMatchSigner => {
+        BidPayloadOption::BadSignerAddress => "0xakljsdfjhk",
+        BidPayloadOption::SignatureDoesNotMatchSigner => {
             "0xAB2a3d9F938E13CD947Ec05AbC7FE734Df8DD820"
         }
         _ => "0x36bCaEE2F1f6C185f91608C7802f6Fc4E8bD9f1d",
     };
     let signature = match option {
-        BidRequestOption::InvalidSignature => "0xakljsdfjhk",
-        _ => "0xec125943630e609fe44cafe7920232092f4413364b60ec4a21dcaf6eed01aefa668236ff37b5b37325cd580e99bbe8416937a80e65dd7a99216cacheee2deafd9231b",
+        BidPayloadOption::InvalidSignature => "0xakljsdfjhk",
+        _ => "0xec125943630e609fe44cafe7920232092f4413364b60ec4a21dcaf6eed01aefa668236ff37b5b37325cd580e99bbe8416937a80e65dd7a99216dbee2deafd9231b",
     };
 
-    BidRequest {
+    BidPayload {
         typed_data,
         sender: sender.to_string(),
         signature: signature.to_string(),

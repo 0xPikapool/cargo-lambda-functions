@@ -1,17 +1,18 @@
 use crate::auction::Auction;
-use crate::bid_request::BidRequest;
+use crate::bid::Bid;
+use crate::bid_payload::BidPayload;
 use crate::cache::{Cache, RedisCache};
-use crate::lock_result_ext::LockResultExt;
+use crate::database::{Database, RdsProvider};
 use crate::signature_validation::verify_signature;
-use crate::sink::{Sink, SqsProvider};
+use crate::utils::{lock_connectable_mutex_safely, Connectable};
 use eip_712::hash_structured_data;
 use ethers::types::Address;
 use lambda_http::http::{Method, StatusCode};
 use lambda_http::{Body, Error, Request, Response};
 use lazy_static::lazy_static;
-use serde_json::{from_str, json};
+use serde_json::from_str;
 use std::str::FromStr;
-use std::sync::Mutex;
+use tokio::sync::Mutex;
 use validator::Validate;
 
 // Store the Cache in a Mutex so we can reuse connections between
@@ -21,13 +22,17 @@ lazy_static! {
         let cache = RedisCache { connection: None };
         Mutex::new(cache)
     };
+    static ref RDS_PROVIDER: Mutex<RdsProvider> = {
+        let database = RdsProvider { client: None };
+        Mutex::new(database)
+    };
 }
 
 pub async fn request_handler(event: Request) -> Result<Response<Body>, Error> {
     let cache_mutex = &REDIS_DATABASE;
-    let mut sink = SqsProvider {};
+    let db = &RDS_PROVIDER;
     match event.method() {
-        &Method::PUT => put_request_handler(event, cache_mutex, &mut sink).await,
+        &Method::PUT => put_request_handler(event, cache_mutex, db).await,
         &Method::OPTIONS => build_response(StatusCode::OK, "OK"),
         _ => build_response(StatusCode::NOT_IMPLEMENTED, "Method not implemented"),
     }
@@ -36,34 +41,44 @@ pub async fn request_handler(event: Request) -> Result<Response<Body>, Error> {
 pub async fn put_request_handler(
     event: Request,
     cache_mutex: &Mutex<impl Cache>,
-    sink: &mut impl Sink,
+    db_mutex: &Mutex<impl Database>,
 ) -> Result<Response<Body>, Error> {
-    let bid_request = match parse_and_validate_event(event, cache_mutex) {
-        Ok(bid_request) => bid_request,
+    let received_time = chrono::Utc::now();
+    let bid_payload = match parse_and_validate_event(event, cache_mutex).await {
+        Ok(bid_payload) => bid_payload,
         Err(e) => return e,
     };
 
-    println!("Sending to sink...");
-    match sink.send(&json!(bid_request).to_string()).await {
+    // BidPayload is valid
+    let bid = Bid::new(bid_payload, received_time);
+
+    println!("Connecting to DB");
+    let mut db = match lock_connectable_mutex_safely(db_mutex).await {
+        Ok(db) => db,
+        Err(e) => return build_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+    };
+
+    println!("Sending to db...");
+    match db.insert_bid(&bid).await {
         Ok(_) => {
             println!("Done! Returning 200.");
             build_response(StatusCode::OK, "OK")
         }
         Err(e) => {
-            eprintln!("Error sending to sink: {}", e);
+            eprintln!("Error sending to db: {}", e);
             build_response(StatusCode::INTERNAL_SERVER_ERROR, &e)
         }
     }
 }
 
-pub fn parse_and_validate_event(
+pub async fn parse_and_validate_event(
     event: Request,
-    cache_mutex: &Mutex<impl Cache>,
-) -> Result<BidRequest, Result<Response<Body>, Error>> {
+    cache_mutex: &Mutex<impl Cache + Connectable>,
+) -> Result<BidPayload, Result<Response<Body>, Error>> {
     // Deserialize the request body into a `BidPayload` struct
     println!("Deserializing request body");
     let bid_payload = match event.body() {
-        Body::Text(body) => from_str::<BidRequest>(&body),
+        Body::Text(body) => from_str::<BidPayload>(&body),
         _ => {
             return Err(build_response(
                 StatusCode::BAD_REQUEST,
@@ -128,41 +143,16 @@ pub fn parse_and_validate_event(
     };
 
     // Passed in-memory validation, now connect to DB
-    let mut cache = cache_mutex.lock().ignore_poison();
-    if cache_mutex.is_poisoned() {
-        eprintln!(
-            "Cache connection is poisoned, this should never happen. Forcing a reconnection."
-        );
-    }
-    if cache_mutex.is_poisoned() || !cache.is_connected() {
-        println!("Establishing new connection to Redis");
-        match cache.connect() {
-            Ok(_) => (),
-            Err(e) => {
-                return Err(build_response(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    &e.to_string(),
-                ))
-            }
-        };
-    } else {
-        println!("Reusing database connection ⚡");
-        match cache.ping() {
-            Ok(_) => (),
-            Err(e) => {
-                eprintln!("Ping failed: {}. Attempting to reconnect...", e.to_string());
-                match cache.connect() {
-                    Ok(_) => (),
-                    Err(e) => {
-                        return Err(build_response(
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            &e.to_string(),
-                        ))
-                    }
-                };
-            }
+    println!("Connecting to Cache");
+    let mut cache = match lock_connectable_mutex_safely(cache_mutex).await {
+        Ok(cache) => cache,
+        Err(e) => {
+            return Err(build_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                &e.to_string(),
+            ))
         }
-    }
+    };
 
     // Check auction is valid
     println!("Checking auction is valid");

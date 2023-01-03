@@ -39,6 +39,8 @@ rusoto_sqs = "0.48.0"
 rusoto_core = "0.48.0"
 async-trait = "0.1.60"
 openssl = { version = "0.10.45", features = ["vendored"] }
+chrono = "0.4.23"
+tokio-postgres = "0.7.7"
 
 [package.metadata.lambda.deploy]
 memory = 512
