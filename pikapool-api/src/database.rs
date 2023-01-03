@@ -35,8 +35,8 @@ impl Database for RdsProvider {
                 now_iso=now_iso,
                 auction_id=bid.auction.id,
                 signer=bid.payload.sender.to_lowercase(),
-                units=bid.payload.get_values().nft_count,
-                tip=bid.payload.get_values().tip_per_nft,
+                units=bid.parsed_values.nft_count,
+                tip=bid.parsed_values.tip_per_nft,
                 submitted_timestamp_iso=bid.received_time.to_rfc3339(),
                 sig=bid.payload.signature,
         );

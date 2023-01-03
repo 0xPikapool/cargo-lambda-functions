@@ -5,8 +5,7 @@ use serde::{Deserialize, Serialize};
 use validator::Validate;
 use validator::ValidationErrors;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct BidPayload {
     pub typed_data: EIP712,
@@ -14,12 +13,18 @@ pub struct BidPayload {
     pub signature: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct BidValues {
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct ParsedValues {
     pub auction_contract: String,
     pub nft_count: u128,
     pub base_price_per_nft: f64,
     pub tip_per_nft: f64,
+}
+
+impl ParsedValues {
+    pub fn get_bid_cost(&self) -> f64 {
+        self.nft_count as f64 * (self.base_price_per_nft + self.tip_per_nft)
+    }
 }
 
 lazy_static! {
@@ -95,23 +100,52 @@ impl Validate for BidPayload {
 }
 
 impl BidPayload {
-    pub fn get_values(&self) -> BidValues {
-        let message = self.typed_data.message.as_object().unwrap();
-        let auction_contract = message.get("auctionContract").unwrap().as_str().unwrap();
-        let nft_count = message.get("nftCount").unwrap().as_str().unwrap();
-        let base_price_per_nft = message.get("basePricePerNft").unwrap().as_str().unwrap();
-        let tip_per_nft = message.get("tipPerNft").unwrap().as_str().unwrap();
+    pub fn parse_values(&self) -> Result<ParsedValues, String> {
+        //
+        // AVERT YOUR EYES
+        //
+        let message = self
+            .typed_data
+            .message
+            .as_object()
+            .ok_or("TypedData message must be an object")?;
+        let auction_contract = message
+            .get("auctionContract")
+            .ok_or("auctionContract parsing error")?
+            .as_str()
+            .ok_or("auctionContract parsing error")?;
+        let nft_count = message
+            .get("nftCount")
+            .ok_or("nftCount parsing error")?
+            .as_str()
+            .ok_or("nftCount parsing error")?
+            .parse::<u128>()
+            .map_err(|e| format!("nftCount parsing error: {}", e.to_string()))?;
+        let base_price_per_nft = message
+            .get("basePricePerNft")
+            .ok_or("basePricePerNft parsing error")?
+            .as_str()
+            .ok_or("basePricePerNft parsing error")?
+            .parse::<f64>()
+            .map_err(|e| format!("basePricePerNft parsing error: {}", e.to_string()))?;
+        let tip_per_nft = message
+            .get("tipPerNft")
+            .ok_or("tipPerNft parsing error")?
+            .as_str()
+            .ok_or("tipPerNft parsing error")?
+            .parse::<f64>()
+            .map_err(|e| format!("tipPerNft parsing error: {}", e.to_string()))?;
 
-        BidValues {
-            auction_contract: auction_contract.to_string(),
-            nft_count: nft_count.parse().unwrap(),
-            base_price_per_nft: base_price_per_nft.parse().unwrap(),
-            tip_per_nft: tip_per_nft.parse().unwrap(),
+        if tip_per_nft < 0.0 {
+            return Err("tip must be greater than or equal to 0".to_string());
         }
-    }
 
-    pub fn get_bid_cost(&self) -> f64 {
-        let values = self.get_values();
-        values.nft_count as f64 * (values.base_price_per_nft + values.tip_per_nft)
+        let parsed_values = ParsedValues {
+            auction_contract: auction_contract.to_string(),
+            nft_count,
+            base_price_per_nft,
+            tip_per_nft,
+        };
+        Ok(parsed_values)
     }
 }

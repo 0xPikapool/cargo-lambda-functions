@@ -43,14 +43,10 @@ pub async fn put_request_handler(
     cache_mutex: &Mutex<impl Cache>,
     db_mutex: &Mutex<impl Database>,
 ) -> Result<Response<Body>, Error> {
-    let received_time = chrono::Utc::now();
-    let (bid_payload, auction) = match parse_and_validate_event(event, cache_mutex).await {
+    let bid = match parse_and_validate_event(event, cache_mutex).await {
         Ok(bid_payload) => bid_payload,
         Err(e) => return e,
     };
-
-    // BidPayload is valid
-    let bid = Bid::new(bid_payload, received_time, auction);
 
     println!("Connecting to DB");
     let mut db = match lock_connectable_mutex_safely(db_mutex).await {
@@ -74,7 +70,9 @@ pub async fn put_request_handler(
 pub async fn parse_and_validate_event(
     event: Request,
     cache_mutex: &Mutex<impl Cache + Connectable>,
-) -> Result<(BidPayload, Auction), Result<Response<Body>, Error>> {
+) -> Result<Bid, Result<Response<Body>, Error>> {
+    let received_time = chrono::Utc::now();
+
     // Deserialize the request body into a `BidPayload` struct
     println!("Deserializing request body");
     let bid_payload = match event.body() {
@@ -90,6 +88,10 @@ pub async fn parse_and_validate_event(
     println!("Unwrapping EIP712 struct");
     let bid_payload = match bid_payload {
         Ok(payload) => payload,
+        Err(e) => return Err(build_response(StatusCode::BAD_REQUEST, &e.to_string())),
+    };
+    let parsed_bid_values = match bid_payload.parse_values() {
+        Ok(parsed_bid_values) => parsed_bid_values,
         Err(e) => return Err(build_response(StatusCode::BAD_REQUEST, &e.to_string())),
     };
     // Validate the EIP712 msg is a valid Bid
@@ -117,22 +119,23 @@ pub async fn parse_and_validate_event(
     println!("Signer address: {}", signer_address);
     // Verify auction contract address is a valid Address
     println!("Verifying auction contract address");
-    let auction_contract_address =
-        match Address::from_str(&bid_payload.get_values().auction_contract) {
-            Ok(address) => address,
-            Err(_) => {
-                return Err(build_response(
-                    StatusCode::BAD_REQUEST,
-                    "Invalid auction contract address",
-                ))
-            }
-        };
+    let auction_contract_address = match Address::from_str(&parsed_bid_values.auction_contract) {
+        Ok(address) => address,
+        Err(_) => {
+            return Err(build_response(
+                StatusCode::BAD_REQUEST,
+                "Invalid auction contract address",
+            ))
+        }
+    };
     println!("Auction contract address: {}", auction_contract_address);
     // Verify the signature
     println!("Verifying signature");
-    let typed_data_hash_bytes: [u8; 32] = hash_structured_data(bid_payload.typed_data.clone())
-        .unwrap()
-        .into();
+    let typed_data_hash_bytes: [u8; 32] = match hash_structured_data(bid_payload.typed_data.clone())
+    {
+        Ok(hash) => hash.into(),
+        Err(e) => return Err(build_response(StatusCode::BAD_REQUEST, &e.to_string())),
+    };
     match verify_signature(
         signer_address,
         typed_data_hash_bytes,
@@ -189,7 +192,7 @@ pub async fn parse_and_validate_event(
     }
     // Check user specified base_price matches actual base_price
     println!("Checking base_price matches");
-    if auction.base_price != bid_payload.get_values().base_price_per_nft {
+    if auction.base_price != parsed_bid_values.base_price_per_nft {
         return Err(build_response(
             StatusCode::BAD_REQUEST,
             "Specified base_price does not match auction base_price",
@@ -246,7 +249,7 @@ pub async fn parse_and_validate_event(
     };
     // Verify user approval
     println!("Verifying user approval");
-    let bid_cost = bid_payload.get_bid_cost();
+    let bid_cost = parsed_bid_values.get_bid_cost();
     if signer_approve_amt < bid_cost {
         return Err(build_response(
             StatusCode::FORBIDDEN,
@@ -263,7 +266,12 @@ pub async fn parse_and_validate_event(
     };
 
     println!("Valid!");
-    Ok((bid_payload, auction))
+    Ok(Bid::new(
+        bid_payload,
+        parsed_bid_values,
+        received_time,
+        auction,
+    ))
 }
 
 fn build_response(status: StatusCode, message: &str) -> Result<Response<Body>, Error> {
