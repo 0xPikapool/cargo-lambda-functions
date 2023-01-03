@@ -4,7 +4,7 @@ use lambda_http::http::{Method, StatusCode};
 use lambda_http::{Body, Request};
 use mockall::{mock, predicate::*};
 use pikapool_api::auction::Auction;
-use pikapool_api::cache::Cache;
+use pikapool_api::cache::Cache as RealCache;
 use pikapool_api::core::put_request_handler;
 use pikapool_api::database::MockDatabase;
 use pikapool_api::dummy_data;
@@ -13,23 +13,17 @@ use serde_json::to_string;
 use tokio::sync::Mutex;
 
 mock! {
-    Cachee {}
+    Cache {}
 
     #[async_trait]
-    impl Connectable for Cachee {
-        async fn connect(&mut self) -> Result<(), String> {
-            Ok(())
-        }
-        async fn ping(&mut self) -> Result<(), String> {
-            Ok(())
-        }
-        async fn is_connected(&self) -> bool {
-            true
-        }
+    impl Connectable for Cache {
+        async fn connect(&mut self) -> Result<(), String>;
+        async fn ping(&mut self) -> Result<(), String>;
+        async fn is_connected(&self) -> bool;
     }
 
     #[async_trait]
-    impl Cache for Cachee {
+    impl RealCache for Cache {
         fn get_signer_approve_and_bal_amts(
             &mut self,
             chain_id: &str,
@@ -63,7 +57,7 @@ mod tests {
 
     #[tokio::test]
     async fn request_handler_no_body() {
-        let mock_cache = Mutex::new(MockCachee::new());
+        let mock_cache = Mutex::new(MockCache::new());
         let mock_db = Mutex::new(MockDatabase::new());
         let mut r = Request::default();
         *r.method_mut() = Method::PUT;
@@ -80,7 +74,7 @@ mod tests {
     async fn request_handler_invalid_eip712() {
         let mut r = Request::new(Body::from("invalid body"));
         *r.method_mut() = Method::PUT;
-        let mut mock_cache = Mutex::new(MockCachee::new());
+        let mut mock_cache = Mutex::new(MockCache::new());
         let mut mock_db = Mutex::new(MockDatabase::new());
         let response = put_request_handler(r, &mut mock_cache, &mut mock_db)
             .await
@@ -98,7 +92,7 @@ mod tests {
         let bid_payload = dummy_data::new_bid_payload(dummy_data::BidPayloadOption::InvalidBid);
         let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_cache = Mutex::new(MockCachee::new());
+        let mut mock_cache = Mutex::new(MockCache::new());
         let mut mock_db = Mutex::new(MockDatabase::new());
         let response = put_request_handler(r, &mut mock_cache, &mut mock_db)
             .await
@@ -117,7 +111,7 @@ mod tests {
             dummy_data::new_bid_payload(dummy_data::BidPayloadOption::BadSignerAddress);
         let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_cache = Mutex::new(MockCachee::new());
+        let mut mock_cache = Mutex::new(MockCache::new());
         let mut mock_db = Mutex::new(MockDatabase::new());
         let response = put_request_handler(r, &mut mock_cache, &mut mock_db)
             .await
@@ -136,7 +130,7 @@ mod tests {
             dummy_data::new_bid_payload(dummy_data::BidPayloadOption::InvalidAuctionAddress);
         let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_cache = Mutex::new(MockCachee::new());
+        let mut mock_cache = Mutex::new(MockCache::new());
         let mut mock_db = Mutex::new(MockDatabase::new());
         let response = put_request_handler(r, &mut mock_cache, &mut mock_db)
             .await
@@ -155,7 +149,7 @@ mod tests {
             dummy_data::new_bid_payload(dummy_data::BidPayloadOption::InvalidSignature);
         let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_cache = Mutex::new(MockCachee::new());
+        let mut mock_cache = Mutex::new(MockCache::new());
         let mut mock_db = Mutex::new(MockDatabase::new());
         let response = put_request_handler(r, &mut mock_cache, &mut mock_db)
             .await
@@ -174,7 +168,7 @@ mod tests {
             dummy_data::new_bid_payload(dummy_data::BidPayloadOption::SignatureDoesNotMatchSigner);
         let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_cache = Mutex::new(MockCachee::new());
+        let mut mock_cache = Mutex::new(MockCache::new());
         let mut mock_db = Mutex::new(MockDatabase::new());
         let response = put_request_handler(r, &mut mock_cache, &mut mock_db)
             .await
@@ -192,7 +186,7 @@ mod tests {
         let bid_payload = dummy_data::new_bid_payload(dummy_data::BidPayloadOption::Valid);
         let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_cache = Mutex::new(MockCachee::new());
+        let mut mock_cache = Mutex::new(MockCache::new());
 
         with_lock(&mut mock_cache, |cache| {
             cache.expect_connect().returning(|| Ok(()));
@@ -219,7 +213,7 @@ mod tests {
         let bid_payload = dummy_data::new_bid_payload(dummy_data::BidPayloadOption::Valid);
         let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_cache = Mutex::new(MockCachee::new());
+        let mut mock_cache = Mutex::new(MockCache::new());
 
         with_lock(&mut mock_cache, |cache| {
             cache.expect_connect().returning(|| Ok(()));
@@ -253,7 +247,7 @@ mod tests {
         let bid_payload = dummy_data::new_bid_payload(dummy_data::BidPayloadOption::Valid);
         let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_cache = Mutex::new(MockCachee::new());
+        let mut mock_cache = Mutex::new(MockCache::new());
 
         with_lock(&mut mock_cache, |cache| {
             cache.expect_connect().returning(|| Ok(()));
@@ -287,7 +281,7 @@ mod tests {
         let bid_payload = dummy_data::new_bid_payload(dummy_data::BidPayloadOption::Valid);
         let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_cache = Mutex::new(MockCachee::new());
+        let mut mock_cache = Mutex::new(MockCache::new());
 
         with_lock(&mut mock_cache, |cache| {
             cache.expect_is_connected().returning(|| true);
@@ -322,7 +316,7 @@ mod tests {
         let bid_payload = dummy_data::new_bid_payload(dummy_data::BidPayloadOption::Valid);
         let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_cache = Mutex::new(MockCachee::new());
+        let mut mock_cache = Mutex::new(MockCache::new());
 
         with_lock(&mut mock_cache, |cache| {
             cache.expect_is_connected().returning(|| true);
@@ -357,7 +351,7 @@ mod tests {
         let bid_payload = dummy_data::new_bid_payload(dummy_data::BidPayloadOption::Valid);
         let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_cache = Mutex::new(MockCachee::new());
+        let mut mock_cache = Mutex::new(MockCache::new());
 
         with_lock(&mut mock_cache, |cache| {
             cache.expect_is_connected().returning(|| true);
@@ -392,7 +386,7 @@ mod tests {
         let bid_payload = dummy_data::new_bid_payload(dummy_data::BidPayloadOption::Valid);
         let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_cache = Mutex::new(MockCachee::new());
+        let mut mock_cache = Mutex::new(MockCache::new());
 
         with_lock(&mut mock_cache, |cache| {
             cache.expect_is_connected().returning(|| true);
@@ -427,7 +421,7 @@ mod tests {
         let bid_payload = dummy_data::new_bid_payload(dummy_data::BidPayloadOption::Valid);
         let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_cache = Mutex::new(MockCachee::new());
+        let mut mock_cache = Mutex::new(MockCache::new());
 
         with_lock(&mut mock_cache, |cache| {
             cache.expect_is_connected().returning(|| true);
@@ -462,7 +456,7 @@ mod tests {
         let bid_payload = dummy_data::new_bid_payload(dummy_data::BidPayloadOption::Valid);
         let mut r = Request::new(Body::from(to_string(&bid_payload).unwrap()));
         *r.method_mut() = Method::PUT;
-        let mut mock_cache = Mutex::new(MockCachee::new());
+        let mut mock_cache = Mutex::new(MockCache::new());
 
         with_lock(&mut mock_cache, |cache| {
             cache.expect_is_connected().returning(|| true);
