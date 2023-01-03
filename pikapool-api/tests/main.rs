@@ -4,13 +4,30 @@ use lambda_http::http::{Method, StatusCode};
 use lambda_http::{Body, Request};
 use mockall::{mock, predicate::*};
 use pikapool_api::auction::Auction;
+use pikapool_api::bid::Bid;
 use pikapool_api::cache::Cache as RealCache;
 use pikapool_api::core::put_request_handler;
-use pikapool_api::database::MockDatabase;
+use pikapool_api::database::Database as RealDatabase;
 use pikapool_api::dummy_data;
 use pikapool_api::utils::Connectable;
 use serde_json::to_string;
 use tokio::sync::Mutex;
+
+mock! {
+    Database {}
+
+    #[async_trait]
+    impl Connectable for Database {
+        async fn connect(&mut self) -> Result<(), String>;
+        async fn ping(&mut self) -> Result<(), String>;
+        async fn is_connected(&self) -> bool;
+    }
+
+    #[async_trait]
+    impl RealDatabase for Database {
+        async fn insert_bid(&mut self, bid: &Bid) -> Result<(), String>;
+    }
+}
 
 mock! {
     Cache {}
@@ -476,6 +493,9 @@ mod tests {
 
         let mut mock_db = Mutex::new(MockDatabase::new());
         with_lock(&mut mock_db, |db| {
+            db.expect_is_connected().returning(|| true);
+            db.expect_connect().returning(|| Ok(()));
+            db.expect_ping().returning(|| Ok(()));
             db.expect_insert_bid().returning(|_| Ok(()));
         })
         .await;

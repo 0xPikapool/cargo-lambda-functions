@@ -3,27 +3,11 @@ use crate::utils::get_env_var;
 use crate::utils::Connectable;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use mockall::automock;
 use tokio_postgres::NoTls;
 
-#[automock]
 #[async_trait]
 pub trait Database: Connectable {
     async fn insert_bid(&mut self, bid: &Bid) -> Result<(), String>;
-}
-
-#[automock]
-#[async_trait]
-impl Connectable for MockDatabase {
-    async fn connect(&mut self) -> Result<(), String> {
-        Ok(())
-    }
-    async fn ping(&mut self) -> Result<(), String> {
-        Ok(())
-    }
-    async fn is_connected(&self) -> bool {
-        true
-    }
 }
 
 pub struct RdsProvider {
