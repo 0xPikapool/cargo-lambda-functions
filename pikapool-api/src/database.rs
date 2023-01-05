@@ -27,9 +27,21 @@ impl Database for RdsProvider {
         let id = bid.hash();
         let query = format!(
             "
-            INSERT INTO bids
-                (auction_address, auction_name, bundle_hash, tx_hash, bid_id, signer, amount, tip_hidden, tip_revealed, status, submitted_timestamp, status_last_updated, signature)
-            VALUES('{auction_address}', '{auction_name}', NULL, NULL, '{bid_id}', '{signer}', {amount}, {tip_hidden}, NULL, 'submitted', '{submitted_timestamp_iso}', '{now_iso}', '{signature}');
+                BEGIN;
+                    INSERT INTO bids
+                        (auction_address, auction_name, bundle_hash, tx_hash, bid_id, signer, amount, tip_hidden, tip_revealed, status, submitted_timestamp, status_last_updated, signature)
+                    VALUES('{auction_address}', '{auction_name}', NULL, NULL, '{bid_id}', '{signer}', {amount}, {tip_hidden}, NULL, 'submitted', '{submitted_timestamp_iso}', '{now_iso}', '{signature}');
+
+                    UPDATE bids SET 
+                        status = 'replaced',
+                        replaced_by = '{bid_id}'
+                    WHERE
+                        auction_address = '{auction_address}'
+                        AND auction_name = '{auction_name}'
+                        AND signer = '{signer}'
+                        AND status = 'submitted'
+                        AND bid_id != '{bid_id}';
+                COMMIT;
             ", 
                 bid_id=id,
                 now_iso=now_iso,
@@ -41,7 +53,7 @@ impl Database for RdsProvider {
                 submitted_timestamp_iso=bid.received_time.to_rfc3339(),
                 signature=&bid.payload.signature[2..],
         );
-        match client.query(&query, &[]).await {
+        match client.batch_execute(&query).await {
             Ok(_) => Ok("0x".to_string() + &id),
             Err(e) => Err(e.to_string()),
         }
