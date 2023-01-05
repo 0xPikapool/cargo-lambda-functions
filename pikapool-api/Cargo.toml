@@ -41,7 +41,7 @@ async-trait = "0.1.60"
 openssl = { version = "0.10.45", features = ["vendored"] }
 chrono = "0.4.23"
 tokio-postgres = "0.7.7"
-uuid = {version = "1.2.2", features = ["v4"]}
+sha2 = "0.10.6"
 
 [package.metadata.lambda.deploy]
 memory = 512

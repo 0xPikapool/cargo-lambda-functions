@@ -1,0 +1,21 @@
+config:
+  plugins:
+    json-include: {}
+  target: "https://zxdu2gzczdmgae7l42v2nn3dve0hghjd.lambda-url.us-east-1.on.aws"
+  phases:
+    - duration: 60
+      arrivalRate: 5
+      name: Warm up
+    - duration: 60
+      arrivalRate: 5
+      rampTo: 500
+      name: Ramp up load
+    - duration: 600
+      arrivalRate: 500
+      name: Sustained load
+
+scenarios:
+  - flow:
+      - put:
+          url: "/"
+          json: "!include(example-bid-payload.json)"

@@ -1,7 +1,7 @@
 use crate::utils::get_env_var;
 use crate::{auction::Auction, utils::Connectable};
 use async_trait::async_trait;
-use ethers::types::Address;
+use ethers::types::{Address, U256};
 use hex;
 use redis::{Commands, RedisError};
 use std::str::FromStr;
@@ -13,11 +13,12 @@ pub trait Cache: Connectable {
         chain_id: &str,
         verifying_contract: &Address,
         signer: &Address,
-    ) -> Result<Option<(f64, f64)>, String>;
+    ) -> Result<Option<(U256, U256)>, String>;
     fn get_auction(
         &mut self,
         chain_id: &str,
         auction_contract: &Address,
+        auction_name: &str,
     ) -> Result<Option<Auction>, String>;
     fn get_synced_block(
         &mut self,
@@ -56,32 +57,39 @@ impl Cache for RedisCache {
         &mut self,
         chain_id: &str,
         auction_contract: &Address,
+        auction_name: &str,
     ) -> Result<Option<Auction>, String> {
         let connection = match self.connection.as_mut() {
             Some(connection) => connection,
             None => return Err("Failed to get redis connection".to_string()),
         };
         let auction_key = format!(
-            "{}:auction:{}",
+            "{}:auction:{}:{}",
             chain_id,
-            hex::encode(auction_contract).to_lowercase()
+            "0x".to_string() + &hex::encode(auction_contract).to_lowercase(),
+            auction_name
         );
 
-        let result: Result<Option<(u64, u64, String, f64)>, RedisError> = connection.hget(
+        let result: Result<Option<(u64, u64, String, String)>, RedisError> = connection.hget(
             &auction_key,
             &["startBlock", "endBlock", "settlementContract", "basePrice"],
         );
 
         match result {
             Ok(option) => match option {
-                Some((start_block, end_block, settlement_contract, base_price)) => {
+                Some((start_block, end_block, settlement_contract, base_price_string)) => {
                     let settlement_contract = match Address::from_str(settlement_contract.as_str())
                     {
                         Ok(address) => address,
                         Err(err) => return Err(err.to_string()),
                     };
+                    let base_price = match U256::from_dec_str(&base_price_string) {
+                        Ok(base_price) => base_price,
+                        Err(err) => return Err(err.to_string()),
+                    };
                     Ok(Some(Auction::new(
                         auction_contract.clone(),
+                        auction_name.to_string(),
                         start_block,
                         end_block,
                         settlement_contract,
@@ -106,7 +114,7 @@ impl Cache for RedisCache {
         chain_id: &str,
         verifying_contract: &Address,
         signer: &Address,
-    ) -> Result<Option<(f64, f64)>, String> {
+    ) -> Result<Option<(U256, U256)>, String> {
         let signer_details_key = format!(
             "{}:{}:{}",
             chain_id,
@@ -117,27 +125,25 @@ impl Cache for RedisCache {
             Some(connection) => connection,
             None => return Err("Failed to get redis connection".to_string()),
         };
-        let result: Result<Option<(String, String)>, RedisError> = connection.hget(
-            &signer_details_key,
-            &["lastApproveValue", "lastBalanceValue"],
-        );
+        let result: Result<Option<(String, String)>, RedisError> =
+            connection.hget(&signer_details_key, &["approveValue", "balanceValue"]);
 
         match result {
             Ok(option) => match option {
-                Some((approve_amt, bal_amt)) => {
-                    let approve_amt_float = if approve_amt == "GTE_U32" {
-                        f64::MAX
+                Some((approve_amt_string, bal_amt_string)) => {
+                    let approve_amt = if approve_amt_string == "MAX_INT256" {
+                        U256::MAX
                     } else {
-                        match approve_amt.parse::<f64>() {
+                        match U256::from_dec_str(&approve_amt_string) {
                             Ok(f) => f,
                             Err(err) => return Err(err.to_string()),
                         }
                     };
-                    let bal_amt: f64 = match bal_amt.parse() {
-                        Ok(f) => f,
+                    let bal_amt = match U256::from_dec_str(&bal_amt_string) {
+                        Ok(bal_amt) => bal_amt,
                         Err(err) => return Err(err.to_string()),
                     };
-                    Ok(Some((approve_amt_float, bal_amt)))
+                    Ok(Some((approve_amt, bal_amt)))
                 }
                 None => Ok(None),
             },

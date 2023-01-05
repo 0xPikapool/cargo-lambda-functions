@@ -1,4 +1,5 @@
 use eip_712::{FieldType, MessageTypes, EIP712};
+use ethers::types::U256;
 use lazy_static::lazy_static;
 use serde;
 use serde::{Deserialize, Serialize};
@@ -15,15 +16,16 @@ pub struct BidPayload {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct ParsedValues {
-    pub auction_contract: String,
-    pub nft_count: u128,
-    pub base_price_per_nft: f64,
-    pub tip_per_nft: f64,
+    pub auction_name: String,
+    pub auction_address: String,
+    pub amount: U256,
+    pub base_price: U256,
+    pub tip: U256,
 }
 
 impl ParsedValues {
-    pub fn get_bid_cost(&self) -> f64 {
-        self.nft_count as f64 * (self.base_price_per_nft + self.tip_per_nft)
+    pub fn get_bid_cost(&self) -> U256 {
+        self.amount * (self.base_price + self.tip)
     }
 }
 
@@ -55,20 +57,24 @@ lazy_static! {
             "Bid".to_string(),
             vec![
                 FieldType {
-                    name: "auctionContract".to_string(),
+                    name: "auctionName".to_string(),
+                    r#type: "string".to_string(),
+                },
+                FieldType {
+                    name: "auctionAddress".to_string(),
                     r#type: "address".to_string(),
                 },
                 FieldType {
-                    name: "nftCount".to_string(),
-                    r#type: "string".to_string(),
+                    name: "amount".to_string(),
+                    r#type: "uint256".to_string(),
                 },
                 FieldType {
-                    name: "basePricePerNft".to_string(),
-                    r#type: "string".to_string(),
+                    name: "basePrice".to_string(),
+                    r#type: "uint256".to_string(),
                 },
                 FieldType {
-                    name: "tipPerNft".to_string(),
-                    r#type: "string".to_string(),
+                    name: "tip".to_string(),
+                    r#type: "uint256".to_string(),
                 },
             ],
         );
@@ -109,42 +115,45 @@ impl BidPayload {
             .message
             .as_object()
             .ok_or("TypedData message must be an object")?;
-        let auction_contract = message
-            .get("auctionContract")
-            .ok_or("auctionContract parsing error")?
+        let auction_name = message
+            .get("auctionName")
+            .ok_or("auctionName parsing error")?
             .as_str()
-            .ok_or("auctionContract parsing error")?;
-        let nft_count = message
-            .get("nftCount")
-            .ok_or("nftCount parsing error")?
-            .as_str()
-            .ok_or("nftCount parsing error")?
-            .parse::<u128>()
-            .map_err(|e| format!("nftCount parsing error: {}", e.to_string()))?;
-        let base_price_per_nft = message
-            .get("basePricePerNft")
-            .ok_or("basePricePerNft parsing error")?
-            .as_str()
-            .ok_or("basePricePerNft parsing error")?
-            .parse::<f64>()
-            .map_err(|e| format!("basePricePerNft parsing error: {}", e.to_string()))?;
-        let tip_per_nft = message
-            .get("tipPerNft")
-            .ok_or("tipPerNft parsing error")?
-            .as_str()
-            .ok_or("tipPerNft parsing error")?
-            .parse::<f64>()
-            .map_err(|e| format!("tipPerNft parsing error: {}", e.to_string()))?;
+            .ok_or("auctionName parsing error")?;
 
-        if tip_per_nft < 0.0 {
-            return Err("tip must be greater than or equal to 0".to_string());
-        }
+        let auction_address = message
+            .get("auctionAddress")
+            .ok_or("auctionAddress parsing error")?
+            .as_str()
+            .ok_or("auctionAddress parsing error")?;
+        let amount = message
+            .get("amount")
+            .ok_or("amount parsing error")?
+            .as_str()
+            .ok_or("amount parsing error")?
+            .parse::<U256>()
+            .map_err(|e| format!("amount parsing error: {}", e.to_string()))?;
+        let base_price = message
+            .get("basePrice")
+            .ok_or("basePrice parsing error")?
+            .as_str()
+            .ok_or("basePrice parsing error")?
+            .parse::<U256>()
+            .map_err(|e| format!("basePrice parsing error: {}", e.to_string()))?;
+        let tip = message
+            .get("tip")
+            .ok_or("tip parsing error")?
+            .as_str()
+            .ok_or("tip parsing error")?
+            .parse::<U256>()
+            .map_err(|e| format!("tip parsing error: {}", e.to_string()))?;
 
         let parsed_values = ParsedValues {
-            auction_contract: auction_contract.to_string(),
-            nft_count,
-            base_price_per_nft,
-            tip_per_nft,
+            auction_name: auction_name.to_string(),
+            auction_address: auction_address.to_string(),
+            amount,
+            base_price,
+            tip,
         };
         Ok(parsed_values)
     }

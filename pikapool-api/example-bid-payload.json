@@ -1,0 +1,58 @@
+{
+  "typed_data": {
+    "primaryType": "Bid",
+    "domain": {
+      "name": "Pikapool Auction",
+      "version": "1",
+      "chainId": "0x1",
+      "verifyingContract": "0xd2090025857B9C7B24387741f120538E928A3a59"
+    },
+    "message": {
+      "auctionAddress": "0xFeebabE6b0418eC13b30aAdF129F5DcDd4f70CeA",
+      "auctionName": "LeafyGreens_Public_Sale",
+      "amount": "0x5",
+      "basePrice": "0x03782dace9d90000",
+      "tip": "0x016345785d8a0000"
+    },
+    "types": {
+      "EIP712Domain": [
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "version",
+          "type": "string"
+        },
+        {
+          "name": "chainId",
+          "type": "uint256"
+        },
+        {
+          "name": "verifyingContract",
+          "type": "address"
+        }
+      ],
+      "Bid": [
+        {
+          "name": "auctionAddress",
+          "type": "address"
+        },
+        {
+          "name": "nftCount",
+          "type": "string"
+        },
+        {
+          "name": "basePricePerNft",
+          "type": "string"
+        },
+        {
+          "name": "tip",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "sender": "0x36bCaEE2F1f6C185f91608C7802f6Fc4E8bD9f1d",
+  "signature": "0xec125943630e609fe44cafe7920232092f4413364b60ec4a21dcaf6eed01aefa668236ff37b5b37325cd580e99bbe8416937a80e65dd7a99216dbee2deafd9231b"
+}

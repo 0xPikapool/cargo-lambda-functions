@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use ethers::types::Address;
+use ethers::types::{Address, U256};
 use lambda_http::http::{Method, StatusCode};
 use lambda_http::{Body, Request};
 use mockall::{mock, predicate::*};
@@ -46,11 +46,12 @@ mock! {
             chain_id: &str,
             verifying_contract: &Address,
             signer: &Address,
-        ) -> Result<Option<(f64, f64)>, String>;
+        ) -> Result<Option<(U256, U256)>, String>;
         fn get_auction(
             &mut self,
             chain_id: &str,
             auction_contract: &Address,
+            auction_name: &str,
         ) -> Result<Option<Auction>, String>;
         fn get_synced_block(
             &mut self,
@@ -209,7 +210,7 @@ mod tests {
             cache.expect_connect().returning(|| Ok(()));
             cache.expect_ping().returning(|| Ok(()));
             cache.expect_is_connected().returning(|| true);
-            cache.expect_get_auction().returning(|_, _| Ok(None));
+            cache.expect_get_auction().returning(|_, _, _| Ok(None));
         })
         .await;
 
@@ -236,7 +237,7 @@ mod tests {
             cache.expect_connect().returning(|| Ok(()));
             cache.expect_ping().returning(|| Ok(()));
             cache.expect_is_connected().returning(|| true);
-            cache.expect_get_auction().returning(|_, _| {
+            cache.expect_get_auction().returning(|_, _, _| {
                 Ok(Some(dummy_data::new_auction(
                     dummy_data::AuctionOption::InvalidSettlementAddress,
                 )))
@@ -270,7 +271,7 @@ mod tests {
             cache.expect_connect().returning(|| Ok(()));
             cache.expect_ping().returning(|| Ok(()));
             cache.expect_is_connected().returning(|| true);
-            cache.expect_get_auction().returning(|_, _| {
+            cache.expect_get_auction().returning(|_, _, _| {
                 Ok(Some(dummy_data::new_auction(
                     dummy_data::AuctionOption::InvalidBasePrice,
                 )))
@@ -306,9 +307,14 @@ mod tests {
             cache.expect_ping().returning(|| Ok(()));
             cache
                 .expect_get_signer_approve_and_bal_amts()
-                .returning(|_, _, _| Ok(Some((200.1, 200.1))));
+                .returning(|_, _, _| {
+                    Ok(Some((
+                        200000000000000000000u128.into(),
+                        200000000000000000000u128.into(),
+                    )))
+                });
             cache.expect_get_synced_block().returning(|_, _| Ok(99));
-            cache.expect_get_auction().returning(|_, _| {
+            cache.expect_get_auction().returning(|_, _, _| {
                 Ok(Some(dummy_data::new_auction(
                     dummy_data::AuctionOption::Valid,
                 )))
@@ -341,9 +347,14 @@ mod tests {
             cache.expect_ping().returning(|| Ok(()));
             cache
                 .expect_get_signer_approve_and_bal_amts()
-                .returning(|_, _, _| Ok(Some((200.1, 200.1))));
+                .returning(|_, _, _| {
+                    Ok(Some((
+                        200000000000000000000u128.into(),
+                        200000000000000000000u128.into(),
+                    )))
+                });
             cache.expect_get_synced_block().returning(|_, _| Ok(201));
-            cache.expect_get_auction().returning(|_, _| {
+            cache.expect_get_auction().returning(|_, _, _| {
                 Ok(Some(dummy_data::new_auction(
                     dummy_data::AuctionOption::Valid,
                 )))
@@ -378,7 +389,7 @@ mod tests {
                 .expect_get_signer_approve_and_bal_amts()
                 .returning(|_, _, _| Ok(None));
             cache.expect_get_synced_block().returning(|_, _| Ok(150));
-            cache.expect_get_auction().returning(|_, _| {
+            cache.expect_get_auction().returning(|_, _, _| {
                 Ok(Some(dummy_data::new_auction(
                     dummy_data::AuctionOption::Valid,
                 )))
@@ -411,9 +422,14 @@ mod tests {
             cache.expect_ping().returning(|| Ok(()));
             cache
                 .expect_get_signer_approve_and_bal_amts()
-                .returning(|_, _, _| Ok(Some((0.5, 0.1))));
+                .returning(|_, _, _| {
+                    Ok(Some((
+                        500000000000000000u128.into(),
+                        100000000000000000u128.into(),
+                    )))
+                });
             cache.expect_get_synced_block().returning(|_, _| Ok(150));
-            cache.expect_get_auction().returning(|_, _| {
+            cache.expect_get_auction().returning(|_, _, _| {
                 Ok(Some(dummy_data::new_auction(
                     dummy_data::AuctionOption::Valid,
                 )))
@@ -446,9 +462,14 @@ mod tests {
             cache.expect_ping().returning(|| Ok(()));
             cache
                 .expect_get_signer_approve_and_bal_amts()
-                .returning(|_, _, _| Ok(Some((200.1, 0.1))));
+                .returning(|_, _, _| {
+                    Ok(Some((
+                        200000000000000000000u128.into(),
+                        100000000000000000u128.into(),
+                    )))
+                });
             cache.expect_get_synced_block().returning(|_, _| Ok(150));
-            cache.expect_get_auction().returning(|_, _| {
+            cache.expect_get_auction().returning(|_, _, _| {
                 Ok(Some(dummy_data::new_auction(
                     dummy_data::AuctionOption::Valid,
                 )))
@@ -481,9 +502,14 @@ mod tests {
             cache.expect_ping().returning(|| Ok(()));
             cache
                 .expect_get_signer_approve_and_bal_amts()
-                .returning(|_, _, _| Ok(Some((200.1, 200.1))));
+                .returning(|_, _, _| {
+                    Ok(Some((
+                        200000000000000000000u128.into(),
+                        200000000000000000000u128.into(),
+                    )))
+                });
             cache.expect_get_synced_block().returning(|_, _| Ok(150));
-            cache.expect_get_auction().returning(|_, _| {
+            cache.expect_get_auction().returning(|_, _, _| {
                 Ok(Some(dummy_data::new_auction(
                     dummy_data::AuctionOption::Valid,
                 )))

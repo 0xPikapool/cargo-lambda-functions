@@ -4,7 +4,6 @@ use crate::utils::Connectable;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use tokio_postgres::NoTls;
-use uuid::Uuid;
 
 #[async_trait]
 pub trait Database: Connectable {
@@ -28,17 +27,18 @@ impl Database for RdsProvider {
         let query = format!(
             "
             INSERT INTO bids
-                (auction_id, bundle_hash, tx_hash, bid_id, signer, units, tip, status, submitted_timestamp, status_last_updated, signed_hash)
-            VALUES('{auction_id}', NULL, NULL, '{bid_id}', '{signer}', {units}, {tip}, 'submitted', '{submitted_timestamp_iso}', '{now_iso}', '{sig}');
+                (auction_address, auction_name, bundle_hash, tx_hash, bid_id, signer, amount, tip_hidden, tip_revealed, status, submitted_timestamp, status_last_updated, signature)
+            VALUES('{auction_address}', '{auction_name}', NULL, NULL, '{bid_id}', '{signer}', {amount}, {tip_hidden}, NULL, 'submitted', '{submitted_timestamp_iso}', '{now_iso}', '{signature}');
             ", 
-                bid_id=Uuid::new_v4(),
+                bid_id=bid.hash(),
                 now_iso=now_iso,
-                auction_id=bid.auction.id,
-                signer=bid.payload.sender.to_lowercase(),
-                units=bid.parsed_values.nft_count,
-                tip=bid.parsed_values.tip_per_nft,
+                auction_name=bid.parsed_values.auction_name,
+                auction_address=hex::encode(bid.auction.address),
+                signer=&bid.payload.sender[2..],
+                amount=bid.parsed_values.amount,
+                tip_hidden=bid.parsed_values.tip,
                 submitted_timestamp_iso=bid.received_time.to_rfc3339(),
-                sig=bid.payload.signature,
+                signature=&bid.payload.signature[2..],
         );
 
         match client.query(&query, &[]).await {

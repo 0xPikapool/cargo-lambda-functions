@@ -119,7 +119,7 @@ pub async fn parse_and_validate_event(
     println!("Signer address: {}", signer_address);
     // Verify auction contract address is a valid Address
     println!("Verifying auction contract address");
-    let auction_contract_address = match Address::from_str(&parsed_bid_values.auction_contract) {
+    let auction_contract_address = match Address::from_str(&parsed_bid_values.auction_address) {
         Ok(address) => address,
         Err(_) => {
             return Err(build_response(
@@ -162,6 +162,7 @@ pub async fn parse_and_validate_event(
     let auction: Auction = match cache.get_auction(
         &bid_payload.typed_data.domain.chain_id.to_string(),
         &auction_contract_address,
+        &parsed_bid_values.auction_name,
     ) {
         Ok(a) => match a {
             Some(option) => option,
@@ -192,12 +193,14 @@ pub async fn parse_and_validate_event(
     }
     // Check user specified base_price matches actual base_price
     println!("Checking base_price matches");
-    if auction.base_price != parsed_bid_values.base_price_per_nft {
+    if auction.base_price != parsed_bid_values.base_price {
         return Err(build_response(
             StatusCode::BAD_REQUEST,
             "Specified base_price does not match auction base_price",
         ));
     }
+    // Check user specified base_price matches actual base_price
+    println!("Getting current block");
     let cur_synced_block = match cache.get_synced_block(
         &bid_payload.typed_data.domain.chain_id.to_string(),
         &settlement_contract,

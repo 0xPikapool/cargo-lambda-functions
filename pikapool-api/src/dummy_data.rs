@@ -1,6 +1,7 @@
 use crate::{auction::Auction, bid_payload::BidPayload};
 use eip_712::EIP712;
 use ethers::types::Address;
+use ethers::utils::parse_ether;
 use serde_json::from_str;
 use std::str::FromStr;
 
@@ -23,24 +24,27 @@ pub fn new_auction(option: AuctionOption) -> Auction {
     match option {
         AuctionOption::InvalidBasePrice => Auction::new(
             Address::from_str("0xFeebabE6b0418eC13b30aAdF129F5DcDd4f70CeA").unwrap(),
+            "LeafyGreens_Public_Sale".to_string(),
             100,
             200,
             Address::from_str("0xd2090025857B9C7B24387741f120538E928A3a59").unwrap(),
-            1.25,
+            parse_ether(1.25).unwrap(),
         ),
         AuctionOption::InvalidSettlementAddress => Auction::new(
             Address::from_str("0xFeebabE6b0418eC13b30aAdF129F5DcDd4f70CeA").unwrap(),
+            "LeafyGreens_Public_Sale".to_string(),
             100,
             200,
             Address::from_str("0xaaa90025857B9C7B24387741f120538E928A3a59").unwrap(),
-            1.25,
+            parse_ether(1.25).unwrap(),
         ),
         _ => Auction::new(
             Address::from_str("0xFeebabE6b0418eC13b30aAdF129F5DcDd4f70CeA").unwrap(),
+            "LeafyGreens_Public_Sale".to_string(),
             100,
             200,
             Address::from_str("0xd2090025857B9C7B24387741f120538E928A3a59").unwrap(),
-            0.25,
+            parse_ether(0.25).unwrap(),
         ),
     }
 }
@@ -63,10 +67,11 @@ pub fn new_bid_payload(option: BidPayloadOption) -> BidPayload {
                 "verifyingContract": "0xd2090025857B9C7B24387741f120538E928A3a59"
             },
             "message": {
-                "auctionContract": "0xFeebabE6b0418eC13b30aAdF129F5DcDd4f70CeA",
-                "nftCount": "5",
-                "basePricePerNft": "0.25",
-                "tipPerNft": "0.5"
+                "auctionAddress": "0xFeebabE6b0418eC13b30aAdF129F5DcDd4f70CeA",
+                "auctionName": "LeafyGreens_Public_Sale",
+                "amount": "0x5",
+                "basePrice": "0x03782dace9d90000",
+                "tip": "0x016345785d8a0000"
             },
             "types": {
                 "EIP712Domain": [
@@ -89,20 +94,24 @@ pub fn new_bid_payload(option: BidPayloadOption) -> BidPayload {
                 ],
                 "Bid": [
                     {
-                        "name": "auctionContract",
+                        "name": "auctionName",
+                        "type": "string"
+                    },
+                    {
+                        "name": "auctionAddress",
                         "type": "address"
                     },
                     {
-                        "name": "nftCount",
-                        "type": "string"
+                        "name": "amount",
+                        "type": "uint256"
                     },
                     {
-                        "name": "basePricePerNft",
-                        "type": "string"
+                        "name": "basePrice",
+                        "type": "uint256"
                     },
                     {
-                        "name": "tipPerNft",
-                        "type": "string"
+                        "name": "tip",
+                        "type": "uint256"
                     }
                 ]
             }
@@ -118,10 +127,11 @@ pub fn new_bid_payload(option: BidPayloadOption) -> BidPayload {
             "verifyingContract": "0xd2090025857B9C7B24387741f120538E928A3a59"
         }},
         "message": {{
-            "auctionContract": "{}",
-            "nftCount": "5",
-            "basePricePerNft": "0.25",
-            "tipPerNft": "0.5"
+            "auctionName": "LeafyGreens_Public_Sale",
+            "auctionAddress": "{}",
+            "amount": "0x5",
+            "basePrice": "0x03782dace9d90000",
+            "tip": "0x016345785d8a0000"
         }},
         "types": {{
             "EIP712Domain": [
@@ -144,20 +154,24 @@ pub fn new_bid_payload(option: BidPayloadOption) -> BidPayload {
             ],
             "Bid": [
                 {{
-                    "name": "auctionContract",
+                    "name": "auctionName",
+                    "type": "string"
+                }},
+                {{
+                    "name": "auctionAddress",
                     "type": "address"
                 }},
                 {{
-                    "name": "nftCount",
-                    "type": "string"
+                    "name": "amount",
+                    "type": "uint256"
                 }},
                 {{
-                    "name": "basePricePerNft",
-                    "type": "string"
+                    "name": "basePrice",
+                    "type": "uint256"
                 }},
                 {{
-                    "name": "tipPerNft",
-                    "type": "string"
+                    "name": "tip",
+                    "type": "uint256"
                 }}
             ]
         }}
@@ -165,7 +179,10 @@ pub fn new_bid_payload(option: BidPayloadOption) -> BidPayload {
             auction_address
         ),
     };
-    let typed_data = from_str::<EIP712>(json.as_str()).unwrap();
+    let typed_data = match from_str::<EIP712>(json.as_str()) {
+        Ok(typed_data) => typed_data,
+        Err(e) => panic!("Error parsing typed data: {}", e),
+    };
 
     let sender = match option {
         BidPayloadOption::BadSignerAddress => "0xakljsdfjhk",
@@ -176,7 +193,7 @@ pub fn new_bid_payload(option: BidPayloadOption) -> BidPayload {
     };
     let signature = match option {
         BidPayloadOption::InvalidSignature => "0xakljsdfjhk",
-        _ => "0xec125943630e609fe44cafe7920232092f4413364b60ec4a21dcaf6eed01aefa668236ff37b5b37325cd580e99bbe8416937a80e65dd7a99216dbee2deafd9231b",
+        _ => "0x1dd291a7d84c8e680c7132ca4812b0b54332bbc26a01afd812c790d8bacfdfd845b11da309d387c20be7a79cef88c38880db081f112a70a65c469a552685880d1b",
     };
 
     BidPayload {

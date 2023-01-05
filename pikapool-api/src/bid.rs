@@ -1,4 +1,6 @@
 use chrono::{DateTime, Utc};
+use hex;
+use sha2::{Digest, Sha256};
 
 use crate::{
     auction::Auction,
@@ -26,5 +28,13 @@ impl Bid {
             received_time,
             auction,
         }
+    }
+
+    pub fn hash(&self) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(&self.payload.sender);
+        hasher.update(&self.payload.signature);
+        hasher.update(&self.received_time.to_rfc3339());
+        hex::encode(hasher.finalize())
     }
 }
