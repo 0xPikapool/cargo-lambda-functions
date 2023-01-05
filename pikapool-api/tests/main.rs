@@ -25,7 +25,7 @@ mock! {
 
     #[async_trait]
     impl RealDatabase for Database {
-        async fn insert_bid(&mut self, bid: &Bid) -> Result<(), String>;
+        async fn insert_bid(&mut self, bid: &Bid) -> Result<String, String>;
     }
 }
 
@@ -522,7 +522,8 @@ mod tests {
             db.expect_is_connected().returning(|| true);
             db.expect_connect().returning(|| Ok(()));
             db.expect_ping().returning(|| Ok(()));
-            db.expect_insert_bid().returning(|_| Ok(()));
+            db.expect_insert_bid()
+                .returning(|_| Ok("0xsomehash".to_string()));
         })
         .await;
         let response = put_request_handler(r, &mut mock_cache, &mut mock_db)
@@ -530,5 +531,9 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
+        match response.body() {
+            Body::Text(msg) => assert_eq!(msg, "0xsomehash"),
+            _ => panic!("Malformed response"),
+        }
     }
 }

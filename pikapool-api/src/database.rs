@@ -7,7 +7,7 @@ use tokio_postgres::NoTls;
 
 #[async_trait]
 pub trait Database: Connectable {
-    async fn insert_bid(&mut self, bid: &Bid) -> Result<(), String>;
+    async fn insert_bid(&mut self, bid: &Bid) -> Result<String, String>;
 }
 
 pub struct RdsProvider {
@@ -16,7 +16,7 @@ pub struct RdsProvider {
 
 #[async_trait]
 impl Database for RdsProvider {
-    async fn insert_bid(&mut self, bid: &Bid) -> Result<(), String> {
+    async fn insert_bid(&mut self, bid: &Bid) -> Result<String, String> {
         let client = match self.client.as_mut() {
             Some(client) => client,
             None => return Err("Failed to get postgres client".to_string()),
@@ -24,13 +24,14 @@ impl Database for RdsProvider {
 
         let now: DateTime<Utc> = Utc::now();
         let now_iso: String = now.to_rfc3339();
+        let id = bid.hash();
         let query = format!(
             "
             INSERT INTO bids
                 (auction_address, auction_name, bundle_hash, tx_hash, bid_id, signer, amount, tip_hidden, tip_revealed, status, submitted_timestamp, status_last_updated, signature)
             VALUES('{auction_address}', '{auction_name}', NULL, NULL, '{bid_id}', '{signer}', {amount}, {tip_hidden}, NULL, 'submitted', '{submitted_timestamp_iso}', '{now_iso}', '{signature}');
             ", 
-                bid_id=bid.hash(),
+                bid_id=id,
                 now_iso=now_iso,
                 auction_name=bid.parsed_values.auction_name,
                 auction_address=hex::encode(bid.auction.address),
@@ -40,9 +41,8 @@ impl Database for RdsProvider {
                 submitted_timestamp_iso=bid.received_time.to_rfc3339(),
                 signature=&bid.payload.signature[2..],
         );
-
         match client.query(&query, &[]).await {
-            Ok(_) => Ok(()),
+            Ok(_) => Ok("0x".to_string() + &id),
             Err(e) => Err(e.to_string()),
         }
     }

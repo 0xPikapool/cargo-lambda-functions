@@ -56,9 +56,9 @@ pub async fn put_request_handler(
 
     println!("Sending to db...");
     match db.insert_bid(&bid).await {
-        Ok(_) => {
+        Ok(hash) => {
             println!("Done! Returning 200.");
-            build_response(StatusCode::OK, "OK")
+            build_response(StatusCode::OK, &hash)
         }
         Err(e) => {
             eprintln!("Error sending to db: {}", e);
