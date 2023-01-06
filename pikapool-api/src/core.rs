@@ -5,11 +5,14 @@ use crate::cache::{Cache, RedisCache};
 use crate::database::{Database, RdsProvider};
 use crate::signature_validation::verify_signature;
 use crate::utils::{lock_connectable_mutex_safely, Connectable};
+use cid::multihash::{Code, MultihashDigest};
+use cid::Cid;
 use eip_712::hash_structured_data;
 use ethers::types::Address;
 use lambda_http::http::{Method, StatusCode};
 use lambda_http::{Body, Error, Request, Response};
 use lazy_static::lazy_static;
+use serde::Serialize;
 use serde_json::from_str;
 use std::str::FromStr;
 use tokio::sync::Mutex;
@@ -277,17 +280,41 @@ pub async fn parse_and_validate_event(
     ))
 }
 
+#[derive(Debug, Serialize)]
+struct ResponseBody {
+    id: Option<String>,
+    cid: Option<String>,
+    error: Option<String>,
+}
+
 fn build_response(status: StatusCode, message: &str) -> Result<Response<Body>, Error> {
     match status {
         StatusCode::OK => (),
         _ => eprintln!("{}: {}", status, message),
     };
+    let response_body: ResponseBody = match status {
+        StatusCode::OK => {
+            let h = Code::Sha2_256.digest(message.as_bytes());
+            let cid = Cid::new_v1(0x55, h);
+            ResponseBody {
+                id: Some(message.to_string()),
+                cid: Some(cid.to_string()),
+                error: None,
+            }
+        }
+        _ => ResponseBody {
+            id: None,
+            cid: None,
+            error: Some(message.to_string()),
+        },
+    };
+    let response_body_text = serde_json::to_string(&response_body).unwrap();
     let res = match Response::builder()
         .header("Access-Control-Allow-Origin", "*")
         .header("Access-Control-Allow-Methods", "PUT,OPTION")
         .header("Access-Control-Allow-Headers", "content-type")
         .status(status)
-        .body(Body::from(message))
+        .body(Body::from(response_body_text))
     {
         Ok(res) => res,
         Err(e) => {

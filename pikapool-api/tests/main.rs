@@ -83,7 +83,10 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         match response.body() {
-            Body::Text(msg) => assert_eq!(msg, "Request body missing"),
+            Body::Text(msg) => assert_eq!(
+                msg,
+                "{\"id\":null,\"cid\":null,\"error\":\"Request body missing\"}"
+            ),
             _ => panic!("Malformed response"),
         }
     }
@@ -100,7 +103,10 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         match response.body() {
-            Body::Text(msg) => assert_eq!(msg, "expected value at line 1 column 1"),
+            Body::Text(msg) => assert_eq!(
+                msg,
+                "{\"id\":null,\"cid\":null,\"error\":\"expected value at line 1 column 1\"}"
+            ),
             _ => panic!("Malformed response"),
         }
     }
@@ -118,7 +124,10 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         match response.body() {
-            Body::Text(msg) => assert_eq!(msg, "typed_data is not a valid Pikapool Bid"),
+            Body::Text(msg) => assert_eq!(
+                msg,
+                "{\"id\":null,\"cid\":null,\"error\":\"typed_data is not a valid Pikapool Bid\"}"
+            ),
             _ => panic!("Malformed response"),
         }
     }
@@ -137,7 +146,10 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         match response.body() {
-            Body::Text(msg) => assert_eq!(msg, "Invalid signer address"),
+            Body::Text(msg) => assert_eq!(
+                msg,
+                "{\"id\":null,\"cid\":null,\"error\":\"Invalid signer address\"}"
+            ),
             _ => panic!("Malformed response"),
         }
     }
@@ -156,7 +168,10 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         match response.body() {
-            Body::Text(msg) => assert_eq!(msg, "Invalid auction contract address"),
+            Body::Text(msg) => assert_eq!(
+                msg,
+                "{\"id\":null,\"cid\":null,\"error\":\"Invalid auction contract address\"}"
+            ),
             _ => panic!("Malformed response"),
         }
     }
@@ -175,7 +190,10 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         match response.body() {
-            Body::Text(msg) => assert_eq!(msg, "Invalid signature"),
+            Body::Text(msg) => assert_eq!(
+                msg,
+                "{\"id\":null,\"cid\":null,\"error\":\"Invalid signature\"}"
+            ),
             _ => panic!("Malformed response"),
         }
     }
@@ -194,7 +212,10 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         match response.body() {
-            Body::Text(msg) => assert_eq!(msg, "Signature does not match signer"),
+            Body::Text(msg) => assert_eq!(
+                msg,
+                "{\"id\":null,\"cid\":null,\"error\":\"Signature does not match signer\"}"
+            ),
             _ => panic!("Malformed response"),
         }
     }
@@ -221,7 +242,10 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         match response.body() {
-            Body::Text(msg) => assert_eq!(msg, "Specified auction does not exist"),
+            Body::Text(msg) => assert_eq!(
+                msg,
+                "{\"id\":null,\"cid\":null,\"error\":\"Specified auction does not exist\"}"
+            ),
             _ => panic!("Malformed response"),
         }
     }
@@ -254,7 +278,7 @@ mod tests {
         match response.body() {
             Body::Text(msg) => assert_eq!(
                 msg,
-                "Specified settlement contract does not match auction settlement contract"
+                "{\"id\":null,\"cid\":null,\"error\":\"Specified settlement contract does not match auction settlement contract\"}"
             ),
             _ => panic!("Malformed response"),
         }
@@ -288,7 +312,7 @@ mod tests {
         match response.body() {
             Body::Text(msg) => assert_eq!(
                 msg,
-                "Specified base_price does not match auction base_price"
+                "{\"id\":null,\"cid\":null,\"error\":\"Specified base_price does not match auction base_price\"}"
             ),
             _ => panic!("Malformed response"),
         }
@@ -329,7 +353,10 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         match response.body() {
-            Body::Text(msg) => assert_eq!(msg, "Auction has not started"),
+            Body::Text(msg) => assert_eq!(
+                msg,
+                "{\"id\":null,\"cid\":null,\"error\":\"Auction has not started\"}"
+            ),
             _ => panic!("Malformed response"),
         }
     }
@@ -369,7 +396,10 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         match response.body() {
-            Body::Text(msg) => assert_eq!(msg, "Auction has ended"),
+            Body::Text(msg) => assert_eq!(
+                msg,
+                "{\"id\":null,\"cid\":null,\"error\":\"Auction has ended\"}"
+            ),
             _ => panic!("Malformed response"),
         }
     }
@@ -404,7 +434,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
         match response.body() {
-            Body::Text(msg) => assert_eq!(msg, "Signer has not approved the settlement contract"),
+            Body::Text(msg) => assert_eq!(msg, "{\"id\":null,\"cid\":null,\"error\":\"Signer has not approved the settlement contract\"}"),
             _ => panic!("Malformed response"),
         }
     }
@@ -444,7 +474,10 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
         match response.body() {
-            Body::Text(msg) => assert_eq!(msg, "Signer approval amount is insufficient"),
+            Body::Text(msg) => assert_eq!(
+                msg,
+                "{\"id\":null,\"cid\":null,\"error\":\"Signer approval amount is insufficient\"}"
+            ),
             _ => panic!("Malformed response"),
         }
     }
@@ -484,7 +517,10 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
         match response.body() {
-            Body::Text(msg) => assert_eq!(msg, "Signer token balance is insufficient"),
+            Body::Text(msg) => assert_eq!(
+                msg,
+                "{\"id\":null,\"cid\":null,\"error\":\"Signer token balance is insufficient\"}"
+            ),
             _ => panic!("Malformed response"),
         }
     }
@@ -532,7 +568,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
         match response.body() {
-            Body::Text(msg) => assert_eq!(msg, "0xsomehash"),
+            Body::Text(msg) => assert_eq!(msg, "{\"id\":\"0xsomehash\",\"cid\":\"bafkreicmgtpekgtrzmcahkzcpcrkalfxagfw2crbt4kqts7fxsrexjxzna\",\"error\":null}"),
             _ => panic!("Malformed response"),
         }
     }
