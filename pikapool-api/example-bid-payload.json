@@ -4,15 +4,8 @@
     "domain": {
       "name": "Pikapool Auction",
       "version": "1",
-      "chainId": "0x1",
-      "verifyingContract": "0xd2090025857B9C7B24387741f120538E928A3a59"
-    },
-    "message": {
-      "auctionAddress": "0xFeebabE6b0418eC13b30aAdF129F5DcDd4f70CeA",
-      "auctionName": "LeafyGreens_Public_Sale",
-      "amount": "0x5",
-      "basePrice": "0x03782dace9d90000",
-      "tip": "0x016345785d8a0000"
+      "chainId": "0x5",
+      "verifyingContract": "0xf2F1cb33141c931D2e81cD0572c97e5b2c63fD9c"
     },
     "types": {
       "EIP712Domain": [
@@ -35,24 +28,40 @@
       ],
       "Bid": [
         {
+          "name": "auctionName",
+          "type": "string"
+        },
+        {
           "name": "auctionAddress",
           "type": "address"
         },
         {
-          "name": "nftCount",
-          "type": "string"
+          "name": "bidder",
+          "type": "address"
         },
         {
-          "name": "basePricePerNft",
-          "type": "string"
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "basePrice",
+          "type": "uint256"
         },
         {
           "name": "tip",
-          "type": "string"
+          "type": "uint256"
         }
       ]
+    },
+    "message": {
+      "auctionName": "Mistys_Modafinil_Maze",
+      "auctionAddress": "0x9bB4E845340a98cd132ce8e5B4C9fC0CedbB3C5b",
+      "bidder": "0x36bCaEE2F1f6C185f91608C7802f6Fc4E8bD9f1d",
+      "amount": "0x1e",
+      "basePrice": "0x45",
+      "tip": "0x01a4"
     }
   },
-  "sender": "0x36bCaEE2F1f6C185f91608C7802f6Fc4E8bD9f1d",
-  "signature": "0xec125943630e609fe44cafe7920232092f4413364b60ec4a21dcaf6eed01aefa668236ff37b5b37325cd580e99bbe8416937a80e65dd7a99216dbee2deafd9231b"
+  "signature": "0x4ef60619ae6c1bd136557d89b9adff70a99ff27990c28efb29281de8272f24ad6c2e7ebbd0a72e36ddb92625f6876614f0db7ec381ea4697baf7dc0eedb068211b",
+  "sender": "0x36bCaEE2F1f6C185f91608C7802f6Fc4E8bD9f1d"
 }

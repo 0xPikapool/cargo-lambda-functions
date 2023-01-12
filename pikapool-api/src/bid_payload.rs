@@ -65,6 +65,10 @@ lazy_static! {
                     r#type: "address".to_string(),
                 },
                 FieldType {
+                    name: "bidder".to_string(),
+                    r#type: "address".to_string(),
+                },
+                FieldType {
                     name: "amount".to_string(),
                     r#type: "uint256".to_string(),
                 },
