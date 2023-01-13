@@ -1,5 +1,13 @@
 # bids
 
+Entrypoint for new bids into the Pikapool mempool
+
+- Validates correctness of the Bid EIP712 TypedData
+- Validates the Bid signature
+- Looks up whether the signer has approved enough WETH and has enough WETH balance (using in-memory cached data from chain-state-service)
+- Looks up whether the auction exists and is open to bids (using in-memory cached data from chain-state-service)
+- Finally, adds Bid to the mempool
+
 ## Install
 
 [See installation instructions for you OS](https://www.cargo-lambda.info/guide/installation.html)
