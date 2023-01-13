@@ -1,6 +1,6 @@
-# serverless
+# Cargo Lambda Functions
 
-Collection of Pikapool serverless functions.
+Collection of Pikapool Cargo Lambda functions.
 
 ## Cargo Lambda
 

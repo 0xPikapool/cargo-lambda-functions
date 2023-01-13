@@ -1,12 +1,12 @@
 config:
   plugins:
     json-include: {}
-  target: "https://zxdu2gzczdmgae7l42v2nn3dve0hghjd.lambda-url.us-east-1.on.aws"
+  target: "https://api.pikapool.cool/"
   phases:
-    - duration: 60
+    - duration: 5
       arrivalRate: 5
       name: Warm up
-    - duration: 60
+    - duration: 6000
       arrivalRate: 5
       rampTo: 500
       name: Ramp up load
@@ -17,5 +17,5 @@ config:
 scenarios:
   - flow:
       - put:
-          url: "/"
+          url: "/v0/bids"
           json: "!include(example-bid-payload.json)"

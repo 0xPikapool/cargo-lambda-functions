@@ -1,4 +1,4 @@
-# pikapool-api
+# bids
 
 ## Install
 
